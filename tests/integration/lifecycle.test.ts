@@ -215,3 +215,35 @@ describe("automation, analytics and exports", () => {
     expect(otherDash.totals.registrations).toBe(0);
   });
 });
+
+describe("subscription limits and manual completion", () => {
+  beforeEach(resetDb);
+
+  it("enforces the college's active-event limit; archived events free capacity", async () => {
+    const college = await makeCollege();
+    await prisma.subscription.create({ data: { collegeId: college.id, plan: "FREE", eventLimit: 1 } });
+    const org = asSession(await makeUser("EVENT_ORGANIZER", college.id));
+    const first = await createEvent(org, await eventForm());
+    await expect(createEvent(org, await eventForm())).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(duplicateEvent(org, first.id)).rejects.toMatchObject({ code: "CONFLICT" });
+    await transitionEvent(org, first.id, "archive");
+    await expect(createEvent(org, await eventForm())).resolves.toHaveProperty("id");
+  });
+
+  it("manual completion requests feedback and allows certificates before the scheduled start", async () => {
+    const college = await makeCollege();
+    const orgUser = await makeUser("EVENT_ORGANIZER", college.id);
+    const org = asSession(orgUser);
+    const event = await makeEvent({ collegeId: college.id, organizerId: orgUser.id, startsInH: 5, deadlineInH: 4 });
+    const s = asSession(await makeUser("STUDENT", college.id));
+    const reg = await registerForEvent(s, { eventId: event.id });
+    const r = await prisma.registration.findUniqueOrThrow({ where: { id: reg.registrationId } });
+    await checkIn(org, event.id, r.qrToken); // allowed within 24h of the start
+    await expect(issueCertificates(org, { eventId: event.id, type: "PARTICIPATION" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await transitionEvent(org, event.id, "start");
+    await transitionEvent(org, event.id, "complete");
+    expect(await prisma.notification.count({ where: { userId: s.id, type: "FEEDBACK_REQUEST" } })).toBe(1);
+    await expect(issueCertificates(org, { eventId: event.id, type: "PARTICIPATION" })).resolves.toMatchObject({ issued: 1 });
+    await submitFeedback(s, { eventId: event.id, overall: 4, organization: 4, venue: 4, speakers: 4, experience: 4 });
+  });
+});

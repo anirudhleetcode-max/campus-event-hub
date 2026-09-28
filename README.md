@@ -30,6 +30,8 @@ Every step writes to one PostgreSQL database. Every permission is enforced on th
 15. [Security model](#security-model)
 16. [Troubleshooting](#troubleshooting)
 
+**Project documents:** [Project review](docs/PROJECT_REVIEW.md) · [Project explanation](docs/PROJECT_EXPLANATION.md) · [Business Model Canvas (PPTX)](docs/Business_Model_Canvas_Apex_Vision.pptx) / [PDF](docs/Business_Model_Canvas_Apex_Vision.pdf)
+
 ---
 
 ## Features
@@ -204,7 +206,7 @@ npm test          # vitest: unit + integration against a real Postgres (campus_h
 npm run build && npm run test:e2e   # playwright: full user journeys against the production build
 ```
 
-**End-to-end tests** (`tests/e2e`, 52 tests) run against `next start` on a dedicated database. By default this is `campus_hub_e2e`; override it with `E2E_DATABASE_URL`.
+**End-to-end tests** (`tests/e2e`, 58 tests) run against `next start` on a dedicated database. By default this is `campus_hub_e2e`; override it with `E2E_DATABASE_URL`.
 
 #### How the E2E database is prepared (and why not in `globalSetup`)
 
@@ -225,6 +227,13 @@ Playwright waits for /api/health → runs the tests
 
 #### What the suites cover
 
+- **`demo-flow`:** the live hackathon demo script, driven **only through the UI**, with no database writes from the test.
+  - The organizer creates an event and submits it; the admin approves it.
+  - A student finds it by search and registers; the organizer sees the registration.
+  - The organizer checks the student in by registration ID, and a duplicate check-in is refused.
+  - The organizer marks the event ongoing and then completed from the event header, which sends the feedback request.
+  - The student leaves feedback; the organizer issues the certificate; the student downloads it and it verifies publicly.
+  - Organizer analytics show 1 registration, 1 check-in, 1 certificate and a 4.0 / 5 rating.
 - **`lifecycle`:** one event through the whole product.
   - The organizer creates it in the wizard and submits it; it isn't public while pending.
   - An admin approves it and it goes live, with an audit entry and a notification.
@@ -252,6 +261,7 @@ The integration tests run against Postgres (see `vitest.config.mts`; override wi
 - **Attendance:** valid, duplicate, forged and wrong-event scans; concurrent scans of the same pass; unpaid and cancelled registrations; unauthorised scanners; volunteer scanners.
 - Feedback eligibility and duplicate prevention; certificate issuance limited to attendees, public verification, PDF rendering, access control and revocation.
 - Reminder idempotency, time-driven status automation, analytics accuracy, and export scoping.
+- **Subscription limits:** a college's plan `eventLimit` caps its active events (cancelled and archived events don't count). Marking an event completed by hand sends feedback requests and allows certificates before the scheduled start.
 - Unit tests: the state machine, RBAC matrix, signature helpers, CSV injection protection, log redaction, QR parsing, image type sniffing, validators, and timezone parsing.
 
 Only the Razorpay HTTP API is mocked in tests. Signatures are computed exactly as Razorpay computes them, and all verification code runs unmodified.

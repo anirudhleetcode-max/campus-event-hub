@@ -70,6 +70,8 @@ export function QrScanner({ eventId, initial }: { eventId: string; initial: { re
   const [code, setCode] = React.useState("");
   const [codeError, setCodeError] = React.useState<string>();
   const [manualPending, setManualPending] = React.useState(false);
+  // True once the operator types after submitting, so a late success doesn't wipe their input.
+  const editedSinceSubmit = React.useRef(false);
 
   const { connected } = useRealtime([`event:${eventId}:attendance`], (_t, data) => {
     if (typeof data.registered === "number" && typeof data.checkedIn === "number") setCounts({ registered: data.registered, checkedIn: data.checkedIn });
@@ -225,11 +227,14 @@ export function QrScanner({ eventId, initial }: { eventId: string; initial: { re
     }
     setManualPending(true);
     setCodeError(undefined);
+    editedSinceSubmit.current = false;
     try {
       const res = await checkInByCodeAction(eventId, value);
       if (res.ok) {
         record(res.data);
-        if (res.data.kind === "success") setCode("");
+        // The live update can show the result before this resolves; don't wipe what the
+        // operator has typed since submitting.
+        if (res.data.kind === "success" && !editedSinceSubmit.current) setCode("");
       } else record({ kind: "error", message: res.error });
     } catch {
       record({ kind: "error", message: "Network error — check your connection and try again." });
@@ -319,7 +324,11 @@ export function QrScanner({ eventId, initial }: { eventId: string; initial: { re
               <Field label="Registration ID" htmlFor="manual-code" error={codeError} hint="Printed under the QR code on the participant's pass." className="flex-1">
                 <Input
                   value={code}
-                  onChange={(e) => (setCode(e.target.value), setCodeError(undefined))}
+                  onChange={(e) => {
+                    editedSinceSubmit.current = true;
+                    setCode(e.target.value);
+                    setCodeError(undefined);
+                  }}
                   placeholder="REG-7KD2QX9M"
                   autoCapitalize="characters"
                   autoComplete="off"

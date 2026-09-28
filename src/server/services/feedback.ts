@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "../db";
-import { AppError, isUniqueViolation, notFound } from "../errors";
+import { AppError, isUniqueViolation } from "../errors";
 import { audit } from "../audit";
 import { requireEventAccess } from "../auth/permissions";
 import type { SessionUser } from "../auth/session";
@@ -66,8 +66,3 @@ export async function eventFeedbackSummary(actor: SessionUser, eventId: string) 
   return { count: agg._count._all, averages: agg._avg, items, distribution: dist };
 }
 
-export async function getMyFeedbackTarget(actor: SessionUser, eventId: string) {
-  const event = await db.event.findUnique({ where: { id: eventId }, select: { id: true, title: true, slug: true, startsAt: true } });
-  if (!event) throw notFound("Event");
-  return { event, eligibility: await feedbackEligibility(actor.id, eventId) };
-}

@@ -64,7 +64,10 @@ export async function issueCertificates(actor: SessionUser, raw: unknown) {
   const { event } = await requireEventAccess(actor, input.eventId, "canManage");
   const full = await db.event.findUniqueOrThrow({ where: { id: event.id }, select: { endsAt: true, startsAt: true, organizerId: true, title: true, status: true } });
   if (full.status === "CANCELLED") throw new AppError("CONFLICT", "Certificates can't be issued for a cancelled event.");
-  if (full.startsAt > new Date()) throw new AppError("CONFLICT", "Certificates can be issued once the event has started.");
+  // Allowed once the event has started, or once the organizer has marked it ongoing/completed.
+  if (full.startsAt > new Date() && full.status !== "ONGOING" && full.status !== "COMPLETED") {
+    throw new AppError("CONFLICT", "Certificates can be issued once the event has started.");
+  }
   if ((input.type === "WINNER" || input.type === "RUNNER_UP" || input.type === "SPEAKER") && !input.userIds?.length) {
     throw new AppError("VALIDATION", "Select the recipients for this certificate type.", { fieldErrors: { userIds: "Select at least one recipient" } });
   }

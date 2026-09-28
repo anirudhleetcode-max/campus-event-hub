@@ -63,7 +63,7 @@ export function SubscriptionForm({ collegeId, initial }: { collegeId: string; in
           <option value="CANCELLED">Cancelled</option>
         </Select>
       </Field>
-      <Field label="Event limit" htmlFor="sub-limit" hint="Leave empty for unlimited events.">
+      <Field label="Event limit" htmlFor="sub-limit" hint="Maximum active events (cancelled and archived events don't count). Leave empty for unlimited.">
         <Input type="number" min={1} value={v.eventLimit} onChange={(e) => setV({ ...v, eventLimit: e.target.value })} />
       </Field>
       <Button type="submit" loading={pending} className="w-full">

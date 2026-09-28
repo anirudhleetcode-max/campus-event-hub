@@ -67,6 +67,7 @@ test("1. organizer creates the event and submits it for approval", async ({ page
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click(); // media, rules → review
   await expect(page.getByText(TITLE).first()).toBeVisible();
   await page.getByRole("button", { name: /Save & submit for approval/ }).click();
+  await expect(page).toHaveURL(/\/organizer\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 }); // wizard navigates once saved
 
   await expect.poll(async () => (await db.event.findFirst({ where: { title: TITLE } }))?.status, { timeout: 20_000 }).toBe("PENDING_APPROVAL");
   // Not public until approved

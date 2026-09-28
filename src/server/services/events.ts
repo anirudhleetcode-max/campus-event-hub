@@ -254,12 +254,29 @@ async function rememberVenue(tx: Tx, collegeId: string, input: { venueName?: str
   return venue.id;
 }
 
+/**
+ * Enforces the college subscription's event limit. Cancelled and archived
+ * events don't count, so archiving past events frees capacity.
+ */
+async function assertEventQuota(collegeId: string) {
+  const sub = await db.subscription.findUnique({ where: { collegeId }, select: { eventLimit: true, plan: true } });
+  if (!sub?.eventLimit) return;
+  const used = await db.event.count({ where: { collegeId, deletedAt: null, status: { notIn: ["CANCELLED", "ARCHIVED"] } } });
+  if (used >= sub.eventLimit) {
+    throw new AppError(
+      "CONFLICT",
+      `Your college's ${sub.plan.toLowerCase()} plan allows ${sub.eventLimit} active events. Archive past events or ask your administrator to upgrade the plan.`,
+    );
+  }
+}
+
 export async function createEvent(actor: SessionUser, raw: EventFormValues, opts: { collegeId?: string } = {}) {
   assertCan(actor, "events:create", "Only organizers and administrators can create events.");
   const input = eventInputSchema.parse(raw);
   const collegeId = actor.role === "SUPER_ADMIN" ? (opts.collegeId ?? actor.collegeId) : actor.collegeId;
   if (!collegeId) throw new AppError("VALIDATION", "Select the college hosting this event.", { fieldErrors: { collegeId: "Select a college" } });
   await validateReferences(collegeId, input);
+  await assertEventQuota(collegeId);
 
   const slug = await uniqueSlug(input.title);
   const event = await db.$transaction(async (tx) => {
@@ -361,6 +378,7 @@ export async function duplicateEvent(actor: SessionUser, eventId: string) {
   const { event } = await requireEventAccess(actor, eventId, "canManage");
   assertCan(actor, "events:create");
   const src = await db.event.findUniqueOrThrow({ where: { id: event.id }, include: { questions: true, speakers: true } });
+  await assertEventQuota(src.collegeId);
   const slug = await uniqueSlug(src.title);
   const copy = await db.event.create({
     data: {
@@ -494,6 +512,20 @@ async function afterTransition(
   if (action === "cancel") {
     await cancelEventRegistrations(actor, eventId, e, reason ?? "");
   }
+  if (action === "complete") {
+    await requestFeedback(eventId, e.title);
+  }
+}
+
+/** Asks confirmed participants for feedback once an event completes (manually or by the status cron). */
+async function requestFeedback(eventId: string, title: string) {
+  const participants = await db.registration.findMany({ where: { eventId, status: "CONFIRMED" }, select: { userId: true } });
+  await notify(participants.map((p) => p.userId), {
+    type: "FEEDBACK_REQUEST",
+    title: `How was ${title}?`,
+    body: "Share your feedback to help organizers make the next event even better.",
+    link: `/my/registrations?feedback=${eventId}`,
+  });
 }
 
 /** Cancels all active registrations of a cancelled event and queues refunds for paid ones. */
@@ -626,13 +658,7 @@ export async function syncEventStatuses(now = new Date()): Promise<{ updated: nu
     await audit({ actorId: null, action: "event.auto_status", entityType: "event", entityId: e.id, metadata: { from: e.status, to: next } });
     if (next === "COMPLETED") {
       completed.push(e.id);
-      const attendees = await db.registration.findMany({ where: { eventId: e.id, status: "CONFIRMED" }, select: { userId: true } });
-      await notify(attendees.map((a) => a.userId), {
-        type: "FEEDBACK_REQUEST",
-        title: `How was ${e.title}?`,
-        body: "Share your feedback to help organizers make the next event even better.",
-        link: `/my/registrations?feedback=${e.id}`,
-      });
+      await requestFeedback(e.id, e.title);
     }
     await publishEventStats(e.id);
   }

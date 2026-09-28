@@ -46,7 +46,7 @@ export default async function EventCertificatesPage({ params }: PageProps<"/orga
   const blockedReason =
     event.status === "CANCELLED"
       ? "Certificates can't be issued for a cancelled event."
-      : event.startsAt > new Date()
+      : event.startsAt > new Date() && event.status !== "ONGOING" && event.status !== "COMPLETED" // mirrors issueCertificates()
         ? "Certificates can be issued once the event has started."
         : undefined;
   const issued = certificates.filter((c) => c.status === "ISSUED").length;
