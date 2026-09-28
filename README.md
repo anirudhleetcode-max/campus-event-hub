@@ -30,7 +30,7 @@ Every step writes to one PostgreSQL database. Every permission is enforced on th
 15. [Security model](#security-model)
 16. [Troubleshooting](#troubleshooting)
 
-**Project documents:** [Project review](docs/PROJECT_REVIEW.md) · [Project explanation](docs/PROJECT_EXPLANATION.md) · [Business Model Canvas (PPTX)](docs/Business_Model_Canvas_Apex_Vision.pptx) / [PDF](docs/Business_Model_Canvas_Apex_Vision.pdf)
+**Project documents:** [Demo guide](docs/DEMO_GUIDE.md) · [Project review](docs/PROJECT_REVIEW.md) · [Project explanation](docs/PROJECT_EXPLANATION.md) · [Business Model Canvas (PPTX)](docs/Business_Model_Canvas_Apex_Vision.pptx) / [PDF](docs/Business_Model_Canvas_Apex_Vision.pdf)
 
 ---
 
