@@ -8,7 +8,7 @@ import { hmacSha256Hex, randomToken } from "../crypto";
 import { env } from "../env";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "../auth/password";
 import { createSession, destroyAllSessions, destroySession, type SessionUser } from "../auth/session";
-import { rateLimit } from "../rate-limit";
+import { rateLimit, refundRateLimit } from "../rate-limit";
 import { emailLayout, sendEmail } from "../mailer";
 import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, changePasswordSchema } from "@/lib/validators";
 import { getSettings } from "./settings";
@@ -18,9 +18,12 @@ const GENERIC_LOGIN_ERROR = "The email or password you entered is incorrect.";
 export async function login(raw: unknown, meta: { ip: string; userAgent?: string }) {
   const input = loginSchema.parse(raw);
   // Per-IP limits are generous because a whole campus often shares one NAT
-  // address; the per-account limit is what stops password guessing.
+  // address; the per-account limit is what stops password guessing. It only
+  // accumulates FAILED attempts (a successful login refunds its slot below), so
+  // many people signing in to one shared demo account never lock it.
+  const accountKey = `login:email:${input.email}`;
   await rateLimit(`login:ip:${meta.ip}`, 200, 15 * 60);
-  await rateLimit(`login:email:${input.email}`, 10, 15 * 60);
+  await rateLimit(accountKey, 10, 15 * 60);
 
   const user = await db.user.findUnique({
     where: { email: input.email },
@@ -39,6 +42,7 @@ export async function login(raw: unknown, meta: { ip: string; userAgent?: string
     throw new AppError("FORBIDDEN", "Your institution's access is currently suspended. Please contact support.");
   }
   await createSession(user.id, meta);
+  await refundRateLimit(accountKey);
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await audit({ actorId: user.id, action: "auth.login", entityType: "user", entityId: user.id, ipAddress: meta.ip });
   return { role: user.role };

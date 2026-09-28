@@ -25,6 +25,16 @@ test.describe("authentication & guards", () => {
     await expect(page.getByText(/suspended/i).first()).toBeVisible();
   });
 
+  test("signing out from the account menu ends the session", async ({ page }) => {
+    await login(page, ACCOUNTS.faculty);
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByRole("menuitem", { name: /Sign out/ }).click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
+    expect((await page.context().cookies()).some((c) => c.name === "ceh_session")).toBe(false);
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login\?next=/);
+  });
+
   test("students cannot reach admin or organizer areas", async ({ page }) => {
     await login(page, ACCOUNTS.student);
     await expect(page).toHaveURL(/\/dashboard/);

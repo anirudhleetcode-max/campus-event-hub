@@ -8,6 +8,19 @@ The same script runs automatically as the Playwright suite `tests/e2e/demo-flow.
 
 ---
 
+## Presenting from the public URL (Render)
+
+When the app is deployed (see README → *Hackathon deployment*), judges can follow along on their own devices:
+
+- Share the `https://…onrender.com` URL and the demo accounts below. All passwords are `Demo@1234`.
+- About **one minute before** you start, open the URL. The free plan sleeps after 15 idle minutes, and waking it takes up to a minute. If the scheduler workflow is set up, it stays awake anyway.
+- Run `SMOKE_BASE_URL=<url> SMOKE_READ_ONLY=1 npm run test:smoke` beforehand as a quick check. It doesn't modify data.
+- **Seeded dates are relative to when the database was seeded.** If that was more than a day ago, the "live" Robotics Expo will have ended. The main sequence below creates its own event and isn't affected. To refresh the seeded events, reset the demo data as described in the README. This wipes everything, including judges' test data.
+- Several judges can use the same demo account at once. Only failed sign-ins count toward the lockout.
+- Uploaded images don't survive a restart on the free plan. The demo doesn't need them.
+
+The local steps below are needed only when presenting from your own machine.
+
 ## Before you present
 
 1. **Start PostgreSQL** and seed fresh demo data **on the day**:

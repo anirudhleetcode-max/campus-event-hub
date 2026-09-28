@@ -1,0 +1,40 @@
+# Calls the app's scheduled jobs (reminders, automatic start/complete, feedback
+# requests, seat-hold expiry, housekeeping). On Render's free plan it also keeps
+# the service awake between judges.
+#
+# Does nothing until these repository secrets exist
+# (Settings → Secrets and variables → Actions → New repository secret):
+#   APP_URL      e.g. https://campus-event-hub.onrender.com   (no trailing slash)
+#   CRON_SECRET  the CRON_SECRET value from the hosting dashboard
+# The app accepts only `Authorization: Bearer <CRON_SECRET>`; every other call gets 401.
+name: Scheduled jobs
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # event status + reminders (GitHub may delay runs a few minutes)
+    - cron: "30 21 * * *"    # daily cleanup (03:00 IST)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Call cron endpoints
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL / CRON_SECRET secrets not set; skipping."
+            exit 0
+          fi
+          if [ "${{ github.event.schedule }}" = "30 21 * * *" ]; then jobs="cleanup"; else jobs="event-status reminders"; fi
+          for job in $jobs; do
+            # --retry covers a cold start on free hosting plans.
+            curl -fsS --retry 3 --retry-delay 20 --max-time 90 \
+              -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/$job"
+            echo
+          done

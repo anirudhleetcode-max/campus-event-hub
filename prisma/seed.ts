@@ -6,6 +6,11 @@
  * touched a payment gateway and cannot be refunded through Razorpay.
  *
  * Run: npm run db:seed   (refuses to run when APP_ENV=production unless SEED_FORCE=1)
+ *
+ * SEED_IF_EMPTY=1 seeds only a database without any users and otherwise
+ * leaves it untouched. The container start command uses this for hosted
+ * demo deployments (SEED_DEMO_DATA_IF_EMPTY=true), so a restart never wipes
+ * data that people created during the demo.
  */
 import { PrismaClient, type CertificateType, type EventMode, type EventStatus, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -57,6 +62,10 @@ async function reset() {
 }
 
 async function main() {
+  if (process.env.SEED_IF_EMPTY === "1" && (await db.user.count()) > 0) {
+    console.log("Database already has users; demo seed skipped (SEED_IF_EMPTY=1).");
+    return;
+  }
   console.log("Seeding demo data…");
   await reset();
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);

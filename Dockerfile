@@ -31,5 +31,6 @@ COPY --from=build --chown=app:app /app/next.config.ts ./next.config.ts
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-# Apply pending migrations, then start
-CMD ["sh", "-c", "npx prisma migrate deploy && npx next start -p ${PORT}"]
+# Apply pending migrations; for hosted demo deployments optionally load the
+# demo data into an EMPTY database (never re-seeds existing data); then start.
+CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DEMO_DATA_IF_EMPTY\" = true ]; then SEED_IF_EMPTY=1 npx tsx prisma/seed.ts; fi && npx next start -p ${PORT}"]

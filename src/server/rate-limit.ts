@@ -22,6 +22,17 @@ export async function rateLimit(key: string, limit: number, windowSeconds: numbe
   }
 }
 
+/**
+ * Gives back one unit of a window, e.g. after a SUCCESSFUL login, so the
+ * per-account limit only accumulates failed attempts. Counting stays atomic
+ * in rateLimit(), so parallel guesses can't slip past the limit.
+ */
+export async function refundRateLimit(key: string): Promise<void> {
+  await db.$executeRaw`
+    UPDATE rate_limits SET count = GREATEST(count - 1, 0)
+    WHERE key = ${key} AND expires_at >= (now() AT TIME ZONE 'UTC')`;
+}
+
 export async function purgeExpiredRateLimits(): Promise<number> {
   const res = await db.rateLimit.deleteMany({ where: { expiresAt: { lt: new Date() } } });
   return res.count;

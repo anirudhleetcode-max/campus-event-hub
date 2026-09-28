@@ -87,7 +87,7 @@ function inspectCore(e: Env, appEnv: AppEnv) {
   if (!auth) errors.push("AUTH_SECRET is required (32+ characters; generate with `openssl rand -base64 32`).");
   else if (auth.length < 32) errors.push("AUTH_SECRET must be at least 32 characters.");
   else if (PLACEHOLDER.test(auth)) errors.push("AUTH_SECRET looks like a placeholder; generate a random value.");
-  const url = val(e, "NEXT_PUBLIC_APP_URL");
+  const url = val(e, "NEXT_PUBLIC_APP_URL") ?? val(e, "RENDER_EXTERNAL_URL");
   if (!url) {
     (prod ? errors : warnings).push("NEXT_PUBLIC_APP_URL is not set (defaults to http://localhost:3000).");
   } else if (!isUrl(url)) {

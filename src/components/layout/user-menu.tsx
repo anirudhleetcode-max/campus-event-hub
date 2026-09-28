@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { LogOut, UserRound, Home, CalendarDays } from "lucide-react";
 import type { Role } from "@prisma/client";
@@ -10,6 +11,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { homeFor } from "./nav-config";
 
 export function UserMenu({ user }: { user: { name: string; email: string; role: Role; avatarUrl: string | null } }) {
+  const [signingOut, startSignOut] = React.useTransition();
   return (
     <Dropdown>
       <DropdownTrigger className="flex items-center gap-2 rounded-lg p-1 hover:bg-surface-2" aria-label="Account menu">
@@ -38,13 +40,20 @@ export function UserMenu({ user }: { user: { name: string; email: string; role: 
           </Link>
         </DropdownItem>
         <DropdownSeparator />
-        <form action={logoutAction}>
-          <DropdownItem asChild destructive>
-            <button type="submit" className="w-full">
-              <LogOut /> Sign out
-            </button>
-          </DropdownItem>
-        </form>
+        {/* Call the action directly: a <form> inside the menu is unmounted when the
+            menu closes on select, which cancels its submission. */}
+        <DropdownItem
+          destructive
+          disabled={signingOut}
+          onSelect={(e) => {
+            e.preventDefault();
+            startSignOut(async () => {
+              await logoutAction();
+            });
+          }}
+        >
+          <LogOut /> {signingOut ? "Signing out…" : "Sign out"}
+        </DropdownItem>
       </DropdownContent>
     </Dropdown>
   );

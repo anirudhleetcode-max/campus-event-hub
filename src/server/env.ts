@@ -50,6 +50,8 @@ export function env(): ServerEnv {
   const blankToUndefined = Object.fromEntries(
     Object.entries(process.env).map(([k, v]) => [k, v === "" ? undefined : v]),
   );
+  // On Render, the service's public https URL is provided as RENDER_EXTERNAL_URL.
+  blankToUndefined.NEXT_PUBLIC_APP_URL ??= blankToUndefined.RENDER_EXTERNAL_URL;
   const parsed = schema.safeParse(blankToUndefined);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");

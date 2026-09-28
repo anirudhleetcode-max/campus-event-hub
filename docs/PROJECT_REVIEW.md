@@ -362,6 +362,11 @@ The layout is mobile-first. It has been checked at 320, 375, 768, 1024, 1280 and
 | S3 storage | Yes | No (local `.data/uploads`) | Yes: `PutObject` contents, validation, configuration, permissions | Partly: the real AWS SDK against a **local** S3-compatible server (moto) to upload, read back publicly and delete. **No cloud bucket was tested.** | Key, secret, bucket, public URL, plus endpoint or region |
 | Cron | Yes | Yes (`CRON_SECRET` in `.env`) | Yes: auth, all three jobs, concurrency | Yes, locally: E2E calls the real endpoint on the production build | `CRON_SECRET` and a scheduler |
 
+**Bugs found and fixed while preparing the hosted deployment:**
+
+- **"Sign out" in the account menu did nothing.** The menu unmounted its form before the form could submit. The E2E suite had always signed out by clearing cookies, so it never noticed. The menu item now calls the sign-out action directly, and a new E2E test clicks the real menu item.
+- **The per-account login limit counted successful sign-ins.** Several judges sharing a demo account would have locked it after 10 sign-ins in 15 minutes. Now only failed attempts accumulate: a successful sign-in refunds its slot, and counting stays atomic. Integration tests show that 25 successful sign-ins pass, and that 10 failures, even from parallel guesses, still lock the account.
+
 **Bug found and fixed while hardening:** two overlapping reminder cron runs could send the same reminder twice, because the claim ignored which rows it had actually inserted. Now only the run that inserts a reminder's claim delivers it, and a concurrency test guards this.
 
 **Product limitations:**
