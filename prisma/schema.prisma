@@ -1,0 +1,816 @@
+// Campus Event Hub — relational schema (PostgreSQL)
+//
+// Conventions
+// - UUID primary keys, snake_case table/column names via @map.
+// - Money is stored in the smallest currency unit (paise for INR) as Int.
+// - Soft deletion (deletedAt) on user-facing aggregates that may be referenced
+//   by financial/audit records: users, colleges, departments, events.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  COLLEGE_ADMIN
+  EVENT_ORGANIZER
+  FACULTY_COORDINATOR
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum CollegeStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  ONGOING
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum EventMode {
+  IN_PERSON
+  ONLINE
+  HYBRID
+}
+
+enum QuestionType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  SELECT
+  CHECKBOX
+}
+
+enum SpeakerRole {
+  SPEAKER
+  JUDGE
+  GUEST
+}
+
+enum VolunteerRole {
+  VOLUNTEER
+  CO_ORGANIZER
+  FACULTY_COORDINATOR
+}
+
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  NONE
+  REQUESTED
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+/// LIVE / TEST mirror the Razorpay key mode used to create the order.
+/// DEMO marks seed data that never touched a payment gateway.
+enum PaymentMode {
+  LIVE
+  TEST
+  DEMO
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum AttendanceMethod {
+  QR
+  MANUAL
+}
+
+enum CertificateType {
+  PARTICIPATION
+  WINNER
+  RUNNER_UP
+  VOLUNTEER
+  ORGANIZER
+  SPEAKER
+}
+
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+}
+
+enum NotificationType {
+  REGISTRATION_CONFIRMED
+  PAYMENT_CONFIRMED
+  PAYMENT_FAILED
+  REFUND_UPDATE
+  EVENT_UPDATE
+  EVENT_REMINDER
+  VENUE_CHANGE
+  EVENT_CANCELLED
+  ATTENDANCE_CONFIRMED
+  CERTIFICATE_AVAILABLE
+  FEEDBACK_REQUEST
+  ANNOUNCEMENT
+  EVENT_APPROVAL
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  name         String
+  phone        String?
+  avatarUrl    String?    @map("avatar_url")
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  collegeId    String?    @map("college_id") @db.Uuid
+  departmentId String?    @map("department_id") @db.Uuid
+  year         Int?
+  studentId    String?    @map("student_id")
+  interests    String[]   @default([])
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  college    College?    @relation(fields: [collegeId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  sessions             Session[]
+  passwordResets       PasswordResetToken[]
+  organizedEvents      Event[]              @relation("EventOrganizer")
+  registrations        Registration[]
+  payments             Payment[]
+  attendance           Attendance[]         @relation("AttendanceParticipant")
+  markedAttendance     Attendance[]         @relation("AttendanceMarkedBy")
+  certificates         Certificate[]        @relation("CertificateRecipient")
+  issuedCertificates   Certificate[]        @relation("CertificateIssuer")
+  notifications        Notification[]
+  feedback             Feedback[]
+  volunteering         EventVolunteer[]
+  auditLogs            AuditLog[]
+  announcements        Announcement[]
+  updatedSettings      SystemSetting[]
+
+  @@index([collegeId, role])
+  @@index([role, status])
+  @@index([name])
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Institutions
+// ─────────────────────────────────────────────────────────────
+
+model College {
+  id                   String        @id @default(uuid()) @db.Uuid
+  name                 String
+  shortName            String?       @map("short_name")
+  slug                 String        @unique
+  logoUrl              String?       @map("logo_url")
+  city                 String?
+  state                String?
+  website              String?
+  contactEmail         String?       @map("contact_email")
+  status               CollegeStatus @default(ACTIVE)
+  requireEventApproval Boolean       @default(true) @map("require_event_approval")
+  signatoryName        String?       @map("signatory_name")
+  signatoryTitle       String?       @map("signatory_title")
+  signatureUrl         String?       @map("signature_url")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  deletedAt            DateTime?     @map("deleted_at")
+
+  departments          Department[]
+  users                User[]
+  events               Event[]
+  venues               Venue[]
+  certificateTemplates CertificateTemplate[]
+  subscription         Subscription?
+  announcements        Announcement[]
+
+  @@index([status])
+  @@map("colleges")
+}
+
+model Department {
+  id        String    @id @default(uuid()) @db.Uuid
+  collegeId String    @map("college_id") @db.Uuid
+  name      String
+  code      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  college College @relation(fields: [collegeId], references: [id])
+  users   User[]
+  events  Event[]
+
+  @@unique([collegeId, code])
+  @@map("departments")
+}
+
+model Subscription {
+  id               String             @id @default(uuid()) @db.Uuid
+  collegeId        String             @unique @map("college_id") @db.Uuid
+  plan             SubscriptionPlan   @default(FREE)
+  status           SubscriptionStatus @default(ACTIVE)
+  eventLimit       Int?               @map("event_limit")
+  currentPeriodEnd DateTime?          @map("current_period_end")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  college College @relation(fields: [collegeId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Events
+// ─────────────────────────────────────────────────────────────
+
+model EventCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  slug      String   @unique
+  color     String   @default("#4f46e5")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  events Event[]
+
+  @@map("event_categories")
+}
+
+/// Saved venues a college can reuse when creating events. Events keep a
+/// snapshot of the venue so that later venue edits don't rewrite history.
+model Venue {
+  id        String   @id @default(uuid()) @db.Uuid
+  collegeId String   @map("college_id") @db.Uuid
+  name      String
+  address   String?
+  city      String?
+  latitude  Float?
+  longitude Float?
+  capacity  Int?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  college College @relation(fields: [collegeId], references: [id])
+  events  Event[]
+
+  @@unique([collegeId, name])
+  @@map("event_venues")
+}
+
+model Event {
+  id                   String      @id @default(uuid()) @db.Uuid
+  slug                 String      @unique
+  title                String
+  summary              String
+  description          String
+  categoryId           String      @map("category_id") @db.Uuid
+  collegeId            String      @map("college_id") @db.Uuid
+  departmentId         String?     @map("department_id") @db.Uuid
+  organizerId          String      @map("organizer_id") @db.Uuid
+  mode                 EventMode   @default(IN_PERSON)
+  status               EventStatus @default(DRAFT)
+
+  startsAt             DateTime    @map("starts_at")
+  endsAt               DateTime    @map("ends_at")
+  registrationOpensAt  DateTime?   @map("registration_opens_at")
+  registrationDeadline DateTime    @map("registration_deadline")
+
+  venueId              String?     @map("venue_id") @db.Uuid
+  venueName            String?     @map("venue_name")
+  venueAddress         String?     @map("venue_address")
+  city                 String?
+  latitude             Float?
+  longitude            Float?
+  onlineUrl            String?     @map("online_url")
+
+  capacity             Int
+  feeAmount            Int         @default(0) @map("fee_amount")
+  currency             String      @default("INR")
+  eligibility          String?
+  requiredFields       String[]    @default([]) @map("required_fields")
+
+  bannerUrl            String?     @map("banner_url")
+  galleryUrls          String[]    @default([]) @map("gallery_urls")
+  rules                String?
+  terms                String?
+  refundPolicy         String?     @map("refund_policy")
+  /// [{ time: string, title: string, description?: string }]
+  schedule             Json        @default("[]")
+  /// [{ question: string, answer: string }]
+  faqs                 Json        @default("[]")
+  tags                 String[]    @default([])
+
+  publishedAt          DateTime?   @map("published_at")
+  cancelledAt          DateTime?   @map("cancelled_at")
+  cancelReason         String?     @map("cancel_reason")
+  approvedById         String?     @map("approved_by_id") @db.Uuid
+  reviewNote           String?     @map("review_note")
+
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+  deletedAt            DateTime?   @map("deleted_at")
+
+  category      EventCategory         @relation(fields: [categoryId], references: [id])
+  college       College               @relation(fields: [collegeId], references: [id])
+  department    Department?           @relation(fields: [departmentId], references: [id])
+  organizer     User                  @relation("EventOrganizer", fields: [organizerId], references: [id])
+  venue         Venue?                @relation(fields: [venueId], references: [id])
+  questions     EventQuestion[]
+  speakers      EventSpeaker[]
+  volunteers    EventVolunteer[]
+  registrations Registration[]
+  payments      Payment[]
+  attendance    Attendance[]
+  certificates  Certificate[]
+  feedback      Feedback[]
+  templates     CertificateTemplate[]
+  announcements Announcement[]
+
+  @@index([status, startsAt])
+  @@index([collegeId, status])
+  @@index([organizerId])
+  @@index([categoryId])
+  @@index([departmentId])
+  @@index([registrationDeadline])
+  @@map("events")
+}
+
+model EventQuestion {
+  id        String       @id @default(uuid()) @db.Uuid
+  eventId   String       @map("event_id") @db.Uuid
+  label     String
+  type      QuestionType @default(TEXT)
+  options   String[]     @default([])
+  required  Boolean      @default(false)
+  position  Int          @default(0)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  event   Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  answers RegistrationAnswer[]
+
+  @@index([eventId, position])
+  @@map("event_questions")
+}
+
+model EventSpeaker {
+  id           String      @id @default(uuid()) @db.Uuid
+  eventId      String      @map("event_id") @db.Uuid
+  name         String
+  title        String?
+  organization String?
+  bio          String?
+  photoUrl     String?     @map("photo_url")
+  role         SpeakerRole @default(SPEAKER)
+  position     Int         @default(0)
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, position])
+  @@map("event_speakers")
+}
+
+/// Event staff: volunteers, co-organizers and assigned faculty coordinators.
+model EventVolunteer {
+  id        String        @id @default(uuid()) @db.Uuid
+  eventId   String        @map("event_id") @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  role      VolunteerRole @default(VOLUNTEER)
+  canScan   Boolean       @default(true) @map("can_scan")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_volunteers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Registration & payments
+// ─────────────────────────────────────────────────────────────
+
+model Registration {
+  id             String             @id @default(uuid()) @db.Uuid
+  /// Human-friendly registration ID shown on passes, e.g. REG-7KD2QX9M
+  code           String             @unique
+  eventId        String             @map("event_id") @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  status         RegistrationStatus @default(PENDING_PAYMENT)
+  /// Seat hold for unpaid registrations. A PENDING_PAYMENT registration only
+  /// occupies a seat while holdExpiresAt is in the future.
+  holdExpiresAt  DateTime?          @map("hold_expires_at")
+  /// Opaque random token encoded in the QR pass. Contains no personal data.
+  qrToken        String             @unique @map("qr_token")
+  amount         Int                @default(0)
+
+  participantName  String  @map("participant_name")
+  participantEmail String  @map("participant_email")
+  participantPhone String? @map("participant_phone")
+  collegeName      String? @map("college_name")
+  departmentName   String? @map("department_name")
+  year             Int?
+  studentId        String? @map("student_id")
+
+  confirmedAt   DateTime? @map("confirmed_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelReason  String?   @map("cancel_reason")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  event       Event                @relation(fields: [eventId], references: [id])
+  user        User                 @relation(fields: [userId], references: [id])
+  answers     RegistrationAnswer[]
+  payments    Payment[]
+  attendance  Attendance?
+  certificates Certificate[]
+  feedback    Feedback?
+  reminders   ReminderLog[]
+
+  @@unique([eventId, userId])
+  @@index([eventId, status])
+  @@index([userId, status])
+  @@index([status, holdExpiresAt])
+  @@map("registrations")
+}
+
+model RegistrationAnswer {
+  id             String   @id @default(uuid()) @db.Uuid
+  registrationId String   @map("registration_id") @db.Uuid
+  questionId     String   @map("question_id") @db.Uuid
+  value          String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  registration Registration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  question     EventQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, questionId])
+  @@map("registration_answers")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  registrationId    String        @map("registration_id") @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  eventId           String        @map("event_id") @db.Uuid
+  amount            Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(CREATED)
+  mode              PaymentMode   @default(TEST)
+  receipt           String        @unique
+  razorpayOrderId   String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+  method            String?
+  failureReason     String?       @map("failure_reason")
+  paidAt            DateTime?     @map("paid_at")
+
+  refundStatus      RefundStatus  @default(NONE) @map("refund_status")
+  refundAmount      Int           @default(0) @map("refund_amount")
+  razorpayRefundId  String?       @unique @map("razorpay_refund_id")
+  refundReason      String?       @map("refund_reason")
+  refundedAt        DateTime?     @map("refunded_at")
+
+  /// Non-sensitive subset of the gateway response (status, method, bank, etc.)
+  gatewayMeta       Json?         @map("gateway_meta")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, status])
+  @@index([userId, createdAt])
+  @@index([registrationId])
+  @@index([status, createdAt])
+  @@index([refundStatus])
+  @@map("payments")
+}
+
+model PaymentWebhook {
+  id             String        @id @default(uuid()) @db.Uuid
+  /// Razorpay's x-razorpay-event-id header — used for idempotency.
+  gatewayEventId String        @unique @map("gateway_event_id")
+  eventType      String        @map("event_type")
+  payload        Json
+  status         WebhookStatus @default(RECEIVED)
+  error          String?
+  receivedAt     DateTime      @default(now()) @map("received_at")
+  processedAt    DateTime?     @map("processed_at")
+
+  @@index([eventType, receivedAt])
+  @@map("payment_webhooks")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Attendance, certificates, feedback
+// ─────────────────────────────────────────────────────────────
+
+model Attendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  registrationId String           @unique @map("registration_id") @db.Uuid
+  eventId        String           @map("event_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  checkInAt      DateTime         @default(now()) @map("check_in_at")
+  checkOutAt     DateTime?        @map("check_out_at")
+  method         AttendanceMethod @default(QR)
+  markedById     String           @map("marked_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+  user         User         @relation("AttendanceParticipant", fields: [userId], references: [id])
+  markedBy     User         @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+
+  @@index([eventId, checkInAt])
+  @@index([userId])
+  @@map("attendance")
+}
+
+model CertificateTemplate {
+  id             String          @id @default(uuid()) @db.Uuid
+  collegeId      String?         @map("college_id") @db.Uuid
+  eventId        String?         @map("event_id") @db.Uuid
+  name           String
+  type           CertificateType
+  heading        String
+  /// Supports {{name}}, {{event}}, {{date}}, {{college}}, {{position}} placeholders.
+  body           String
+  accentColor    String          @default("#3b4fd8") @map("accent_color")
+  signatoryName  String?         @map("signatory_name")
+  signatoryTitle String?         @map("signatory_title")
+  isDefault      Boolean         @default(false) @map("is_default")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  college      College?      @relation(fields: [collegeId], references: [id])
+  event        Event?        @relation(fields: [eventId], references: [id])
+  certificates Certificate[]
+
+  @@index([collegeId, type])
+  @@index([eventId])
+  @@map("certificate_templates")
+}
+
+model Certificate {
+  id             String            @id @default(uuid()) @db.Uuid
+  /// Public verification ID, e.g. CEH-2026-4F7K9Q2M
+  code           String            @unique
+  eventId        String            @map("event_id") @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  registrationId String?           @map("registration_id") @db.Uuid
+  templateId     String?           @map("template_id") @db.Uuid
+  type           CertificateType
+  recipientName  String            @map("recipient_name")
+  position       String?
+  status         CertificateStatus @default(ISSUED)
+  issuedAt       DateTime          @default(now()) @map("issued_at")
+  issuedById     String            @map("issued_by_id") @db.Uuid
+  revokedAt      DateTime?         @map("revoked_at")
+  revokedReason  String?           @map("revoked_reason")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  event        Event                @relation(fields: [eventId], references: [id])
+  user         User                 @relation("CertificateRecipient", fields: [userId], references: [id])
+  issuedBy     User                 @relation("CertificateIssuer", fields: [issuedById], references: [id])
+  registration Registration?        @relation(fields: [registrationId], references: [id])
+  template     CertificateTemplate? @relation(fields: [templateId], references: [id])
+
+  @@unique([eventId, userId, type])
+  @@index([userId])
+  @@map("certificates")
+}
+
+model Feedback {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  registrationId String   @unique @map("registration_id") @db.Uuid
+  overall        Int
+  organization   Int
+  venue          Int
+  speakers       Int
+  experience     Int
+  comments       String?
+  suggestions    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  event        Event        @relation(fields: [eventId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  registration Registration @relation(fields: [registrationId], references: [id])
+
+  @@unique([eventId, userId])
+  @@map("feedback")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Communication
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model Announcement {
+  id             String   @id @default(uuid()) @db.Uuid
+  authorId       String   @map("author_id") @db.Uuid
+  collegeId      String?  @map("college_id") @db.Uuid
+  eventId        String?  @map("event_id") @db.Uuid
+  title          String
+  body           String
+  audience       String
+  recipientCount Int      @default(0) @map("recipient_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  author  User     @relation(fields: [authorId], references: [id])
+  college College? @relation(fields: [collegeId], references: [id])
+  event   Event?   @relation(fields: [eventId], references: [id])
+
+  @@index([collegeId, createdAt])
+  @@index([eventId])
+  @@map("announcements")
+}
+
+model ReminderLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  registrationId String   @map("registration_id") @db.Uuid
+  /// Offset in hours before the event start (e.g. 168, 24, 1)
+  offsetHours    Int      @map("offset_hours")
+  delivered      Boolean  @default(true)
+  sentAt         DateTime @default(now()) @map("sent_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, offsetHours])
+  @@map("reminder_logs")
+}
+
+model EmailLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  to         String
+  subject    String
+  template   String
+  status     EmailStatus
+  providerId String?     @map("provider_id")
+  error      String?
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Platform
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updatedById], references: [id])
+
+  @@map("system_settings")
+}
+
+/// Fixed-window rate limiter state (shared across serverless instances).
+model RateLimit {
+  key       String   @id
+  count     Int
+  expiresAt DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("rate_limits")
+}
