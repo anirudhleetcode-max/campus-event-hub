@@ -126,3 +126,8 @@ export function fromDateTimeLocal(value: string): Date | null {
   // Re-evaluate once to handle DST boundaries correctly.
   return new Date(guess - tzOffsetMs(new Date(first)));
 }
+
+/** Like formatMoney but renders zero as ₹0 (for revenue figures, not prices). */
+export function formatRupees(amount: number): string {
+  return amount === 0 ? "₹0" : formatMoney(amount);
+}

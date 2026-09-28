@@ -59,7 +59,7 @@ function SidebarFooter({ user }: { user: ShellUser }) {
   );
 }
 
-export function AppShell({ user, unread, children }: { user: ShellUser; unread: number; children: React.ReactNode }) {
+export function AppShell({ user, unread, banner, children }: { user: ShellUser; unread: number; banner?: string; children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const groups = navFor(user.role);
   return (
@@ -114,6 +114,11 @@ export function AppShell({ user, unread, children }: { user: ShellUser; unread: 
             <UserMenu user={user} />
           </div>
         </header>
+        {banner && (
+          <div role="status" className="border-b border-warning/30 bg-warning-soft px-4 py-2 text-center text-sm text-warning-soft-foreground sm:px-6">
+            {banner}
+          </div>
+        )}
         <main id="main" className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
