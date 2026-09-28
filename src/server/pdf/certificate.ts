@@ -4,6 +4,7 @@ import path from "node:path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import QRCode from "qrcode";
 import { logger } from "../logger";
+import { readLocalUpload } from "../storage";
 
 export type CertificateData = {
   code: string;
@@ -45,7 +46,11 @@ async function loadImage(doc: PDFDocument, url: string | null | undefined): Prom
   if (!url) return null;
   try {
     let bytes: Uint8Array;
-    if (url.startsWith("/")) {
+    if (url.startsWith("/uploads/")) {
+      const local = await readLocalUpload(url.slice("/uploads/".length));
+      if (!local) return null;
+      bytes = local.body;
+    } else if (url.startsWith("/")) {
       const file = path.join(process.cwd(), "public", path.normalize(url).replace(/^(\.\.[/\\])+/, ""));
       if (!file.startsWith(path.join(process.cwd(), "public"))) return null;
       bytes = await readFile(file);

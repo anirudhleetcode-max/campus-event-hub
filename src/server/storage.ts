@@ -1,5 +1,5 @@
 import "server-only";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { imageSize } from "image-size";
@@ -68,13 +68,33 @@ class S3Provider implements StorageProvider {
   }
 }
 
-/** Development-only fallback that writes to /public/uploads. */
+/**
+ * Non-production fallback: files live in .data/uploads and are served by the
+ * /uploads/[...key] route handler. (Files written into public/ after a build
+ * are not served by `next start`, so public/ can't be used.)
+ */
+export const LOCAL_UPLOAD_DIR = path.join(process.cwd(), ".data", "uploads");
+
 class LocalProvider implements StorageProvider {
   async put(key: string, body: Buffer) {
-    const target = path.join(process.cwd(), "public", "uploads", key);
+    const target = path.join(LOCAL_UPLOAD_DIR, key);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, body);
     return `/uploads/${key}`;
+  }
+}
+
+const CONTENT_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+
+/** Reads a locally stored upload, refusing anything outside the upload directory. */
+export async function readLocalUpload(key: string): Promise<{ body: Buffer; contentType: string } | null> {
+  if (!/^[a-z]+\/[0-9a-f-]{36}\/[A-Za-z0-9_-]+\.(png|jpg|webp)$/.test(key)) return null;
+  const file = path.resolve(LOCAL_UPLOAD_DIR, key);
+  if (!file.startsWith(LOCAL_UPLOAD_DIR + path.sep)) return null;
+  try {
+    return { body: await readFile(file), contentType: CONTENT_TYPES[key.split(".").pop()!]! };
+  } catch {
+    return null;
   }
 }
 

@@ -122,3 +122,26 @@ test.describe("student journey", () => {
     await expect(page.getByText(/no certificate found/i).first()).toBeVisible();
   });
 });
+
+test.describe("uploads", () => {
+  test("validated image uploads are stored and served; disguised or forbidden uploads are refused", async ({ page }) => {
+    const QRCode = (await import("qrcode")).default;
+    const png = await QRCode.toBuffer("avatar-e2e", { width: 300 });
+    await login(page, ACCOUNTS.student);
+    const origin = new URL(page.url()).origin;
+    const upload = (buffer: Buffer, kind: string) =>
+      page.request.post("/api/uploads", { headers: { origin }, multipart: { kind, file: { name: "a.png", mimeType: "image/png", buffer } } });
+
+    const ok = await upload(png, "avatar");
+    expect(ok.status()).toBe(201);
+    const { url } = (await ok.json()) as { url: string };
+    const served = await page.request.get(url);
+    expect(served.status()).toBe(200);
+    expect(served.headers()["content-type"]).toBe("image/png");
+
+    const svg = await upload(Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"), "avatar");
+    expect(svg.status()).toBe(422);
+    expect((await upload(png, "logo")).status()).toBe(403);
+    expect((await page.request.get("/uploads/../../package.json")).status()).toBe(404);
+  });
+});

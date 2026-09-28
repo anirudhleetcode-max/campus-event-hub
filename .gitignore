@@ -42,7 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 # local uploads (dev storage fallback)
-/public/uploads/
+/.data/
 
 # playwright
 /test-results/

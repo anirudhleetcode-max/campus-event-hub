@@ -167,7 +167,7 @@ See [`.env.example`](./.env.example). Use **separate values for development, sta
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | for paid events | Use `rzp_test_…` keys outside production. The key secret never leaves the server. |
 | `RAZORPAY_WEBHOOK_SECRET` | for paid events | The secret you set on the Razorpay webhook. |
 | `EMAIL_API_KEY`, `EMAIL_FROM` | recommended | Resend API key and a verified sender. Without them, emails are recorded in `email_logs` as `SKIPPED`. |
-| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`, `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_PUBLIC_URL` | yes (prod) | S3-compatible storage. Without them, development uploads go to `public/uploads`, and uploads are disabled in production. |
+| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`, `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_PUBLIC_URL` | yes (prod) | S3-compatible storage. Without them, non-production uploads are stored in `.data/uploads` and served by `/uploads/*`; uploads are disabled in production. |
 | `NEXT_PUBLIC_TIMEZONE` | no | Display and input timezone. Defaults to `Asia/Kolkata`. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warn` or `error`. |
 
@@ -204,12 +204,13 @@ npm test          # vitest: unit + integration against a real Postgres (campus_h
 npm run build && npm run test:e2e   # playwright: full user journeys against the production build
 ```
 
-**End-to-end tests** (`tests/e2e`, 35 tests) run against `next start` and a dedicated database, `campus_hub_e2e` by default (override with `E2E_DATABASE_URL`). The database is created, migrated and re-seeded on every run, so your development data is never touched. The suites cover:
+**End-to-end tests** (`tests/e2e`, 36 tests) run against `next start` and a dedicated database, `campus_hub_e2e` by default (override with `E2E_DATABASE_URL`). The database is created, migrated and re-seeded on every run, so your development data is never touched. The suites cover:
 
 - **Auth and guards:** redirects for anonymous users, role isolation, cross-origin POST rejection, unsigned webhooks and cron secrets.
 - **The student journey:** sign up, search, register, the QR pass, duplicate prevention, notifications, the receipt, certificate PDFs and verification. They also check that a student can't open another student's registration, payment or certificate.
 - **The organizer journey:** check-in by registration ID plus duplicate detection, the attendance dashboard, feedback, issuing certificates, analytics and the PDF report. They also cover the event wizard through to admin approval and publication, and read-only access for faculty.
 - **Admin:** dashboard metrics checked against the database, suspending and reactivating users (recorded in the audit log), college isolation, every admin section, announcements and CSV exports.
+- **Uploads:** a valid image is stored and served back; a disguised SVG, a forbidden upload type, and path traversal are all refused.
 - **Responsive layout:** no horizontal overflow at 320, 375, 768 and 1280px on public, student, organizer and admin pages, and the mobile menus work.
 
 To use a preinstalled Chromium, set `PLAYWRIGHT_CHROMIUM_PATH` (or `PLAYWRIGHT_BROWSERS_PATH`).
