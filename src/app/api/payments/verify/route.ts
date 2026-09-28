@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requireUser } from "@/server/auth/session";
 import { assertSameOrigin, errorResponse, json, readJson } from "@/server/http";
+import { rateLimit } from "@/server/rate-limit";
 import { verifyCheckout } from "@/server/services/payments";
 
 export const runtime = "nodejs";
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   try {
     assertSameOrigin(req);
     const user = await requireUser();
+    await rateLimit(`pay-verify:${user.id}`, 20, 10 * 60);
     const input = bodySchema.parse(await readJson(req));
     const result = await verifyCheckout(user, input);
     return json(result);

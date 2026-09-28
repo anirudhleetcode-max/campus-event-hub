@@ -75,7 +75,7 @@ export async function EventTable({
               <TH className="text-right">Capacity</TH>
               <TH className="text-right">Revenue</TH>
               <TH className="text-right">Attendance</TH>
-              <TH className="w-12">
+              <TH className="sticky right-0 w-12 bg-surface-2">
                 <span className="sr-only">Actions</span>
               </TH>
             </tr>
@@ -113,7 +113,7 @@ export async function EventTable({
                     {formatNumber(e.attendance)}
                     {e.registrations > 0 && <span className="ml-1 text-xs text-muted-foreground">({formatPercent(e.attendance / e.registrations)})</span>}
                   </TD>
-                  <TD className="text-right">
+                  <TD className="sticky right-0 bg-surface text-right shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]">
                     <EventRowActions
                       eventId={e.id}
                       title={e.title}

@@ -9,8 +9,13 @@ import { cn } from "@/lib/utils";
 /** Route-based tabs (each tab is a page). */
 export function TabNav({ items, className }: { items: { href: string; label: string; exact?: boolean }[]; className?: string }) {
   const pathname = usePathname();
+  const navRef = React.useRef<HTMLElement>(null);
+  // On narrow screens the tab strip scrolls; keep the active tab visible.
+  React.useEffect(() => {
+    navRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
   return (
-    <nav className={cn("-mx-1 overflow-x-auto border-b border-border", className)} aria-label="Sections">
+    <nav ref={navRef} className={cn("-mx-1 overflow-x-auto border-b border-border", className)} aria-label="Sections">
       <ul className="flex min-w-max gap-1 px-1">
         {items.map((it) => {
           const active = it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(`${it.href}/`);

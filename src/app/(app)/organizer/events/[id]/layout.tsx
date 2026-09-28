@@ -43,7 +43,7 @@ export default async function EventStaffLayout({ children, params }: LayoutProps
             ]}
           />
         )}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <EventStatusBadge status={event.status} />

@@ -27,6 +27,14 @@ const DAY = 24 * HOUR;
 const now = Date.now();
 const at = (ms: number) => new Date(now + ms);
 
+const IST_OFFSET = 5.5 * HOUR;
+const START_HOURS = [10, 14, 9, 16, 11, 17, 10, 15];
+/** The given hour (IST) on the IST calendar day containing `ms`. */
+function istAt(ms: number, hour: number): Date {
+  const d = new Date(ms + IST_OFFSET);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour) - IST_OFFSET);
+}
+
 // Deterministic pseudo-random for stable demo data
 let seed = 42;
 const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
@@ -150,10 +158,12 @@ async function main() {
 
   const events: { id: string; spec: Spec; startsAt: Date; endsAt: Date }[] = [];
   for (const s of specs) {
-    // Round to the hour so demo schedules read naturally (e.g. 10:00, not 10:07).
-    const startsAt = new Date(Math.round((now + s.start) / HOUR) * HOUR);
+    // Realistic wall-clock start times in IST (UTC+05:30). Events within a day of
+    // "now" (e.g. the live Robotics Expo) stay relative so the demo is always mid-event.
+    const startsAt = Math.abs(s.start) < DAY ? new Date(Math.round((now + s.start) / HOUR) * HOUR) : istAt(now + s.start, START_HOURS[events.length % START_HOURS.length]!);
     const endsAt = new Date(startsAt.getTime() + s.durationH * HOUR);
-    const deadline = s.deadline !== undefined ? at(s.deadline) : new Date(startsAt.getTime() - 12 * HOUR);
+    // Deadlines: 11:59 pm IST the evening before, or 6 pm IST on the given (past) day.
+    const deadline = s.deadline !== undefined ? istAt(now + s.deadline, 18) : new Date(istAt(startsAt.getTime() - DAY, 23).getTime() + 59 * 60_000);
     const dept = s.dept ? depts.find((d) => d.code === s.dept && d.collegeId === s.college.id) : undefined;
     const slug = `${s.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50)}-${code(5).toLowerCase()}`;
     const venue = s.venue ? await db.venue.upsert({ where: { collegeId_name: { collegeId: s.college.id, name: s.venue } }, create: { collegeId: s.college.id, name: s.venue, city: s.college.city }, update: {} }) : null;

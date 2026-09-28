@@ -60,7 +60,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 <TH className="hidden md:table-cell">College / department</TH>
                 <TH className="hidden lg:table-cell">Activity</TH>
                 <TH className="hidden lg:table-cell">Last sign-in</TH>
-                <TH className="text-right">
+                <TH className="sticky right-0 bg-surface-2 text-right">
                   <span className="sr-only">Actions</span>
                 </TH>
               </tr>
@@ -95,7 +95,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                   <TD className="hidden text-muted-foreground lg:table-cell" title={u.lastLoginAt ? formatDate(u.lastLoginAt) : undefined}>
                     {u.lastLoginAt ? relativeTime(u.lastLoginAt) : "Never"}
                   </TD>
-                  <TD>
+                  <TD className="sticky right-0 bg-surface shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]">
                     <UserActions user={u} assignable={assignable} isSelf={u.id === user.id} />
                   </TD>
                 </TR>

@@ -201,8 +201,18 @@ All demo accounts use the password **`Demo@1234`**. They exist only in seeded de
 
 ```bash
 npm test          # vitest: unit + integration against a real Postgres (campus_hub_test is created automatically)
-npm run test:e2e  # playwright: full user journeys against a production build
+npm run build && npm run test:e2e   # playwright: full user journeys against the production build
 ```
+
+**End-to-end tests** (`tests/e2e`, 35 tests) run against `next start` and a dedicated database, `campus_hub_e2e` by default (override with `E2E_DATABASE_URL`). The database is created, migrated and re-seeded on every run, so your development data is never touched. The suites cover:
+
+- **Auth and guards:** redirects for anonymous users, role isolation, cross-origin POST rejection, unsigned webhooks and cron secrets.
+- **The student journey:** sign up, search, register, the QR pass, duplicate prevention, notifications, the receipt, certificate PDFs and verification. They also check that a student can't open another student's registration, payment or certificate.
+- **The organizer journey:** check-in by registration ID plus duplicate detection, the attendance dashboard, feedback, issuing certificates, analytics and the PDF report. They also cover the event wizard through to admin approval and publication, and read-only access for faculty.
+- **Admin:** dashboard metrics checked against the database, suspending and reactivating users (recorded in the audit log), college isolation, every admin section, announcements and CSV exports.
+- **Responsive layout:** no horizontal overflow at 320, 375, 768 and 1280px on public, student, organizer and admin pages, and the mobile menus work.
+
+To use a preinstalled Chromium, set `PLAYWRIGHT_CHROMIUM_PATH` (or `PLAYWRIGHT_BROWSERS_PATH`).
 
 The integration tests run against Postgres (see `vitest.config.mts`; override with `TEST_DATABASE_URL`). They cover:
 
@@ -245,7 +255,7 @@ Uploads (event banners and galleries, college logos, profile pictures, certifica
 - **AWS S3:** leave `STORAGE_URL` empty, set `STORAGE_REGION`, and use a bucket policy or CloudFront for public reads.
 - **Supabase Storage:** use the S3 endpoint `https://<project>.supabase.co/storage/v1/s3` and a public bucket URL.
 
-The storage origin is added to the Content Security Policy automatically from `STORAGE_PUBLIC_URL`.
+The storage origin is added to the Content Security Policy automatically from `STORAGE_PUBLIC_URL`. The CSP is computed in `next.config.ts`, so **`STORAGE_PUBLIC_URL` must be set at build time** as well as at runtime.
 
 ## Email setup
 
@@ -311,7 +321,7 @@ Put the app behind HTTPS and forward `x-forwarded-for`, `x-forwarded-host` and `
 - **XSS:** React escaping everywhere; user text is rendered as text, never HTML; SVG uploads are rejected; JSON-LD escapes `<`; the CSP sets `frame-ancestors 'none'` and `object-src 'none'`.
 - **CSRF:** Server Actions get Next.js origin checks. Cookie-authenticated JSON endpoints verify the `Origin` header. Cookies use `SameSite=Lax`.
 - **Payments:** only the server knows the secret keys; checkout signatures and webhook signatures are verified with timing-safe comparisons; amounts are cross-checked with Razorpay; webhook processing is idempotent.
-- **Rate limiting:** a Postgres-backed fixed window that is shared across instances. It covers login, signup, password reset, payment orders, uploads and scanning.
+- **Rate limiting:** a Postgres-backed fixed window that is shared across instances. It covers login (10 attempts per account and 200 per IP per 15 minutes), signup, password reset, payment orders and verification, uploads, and scanning. The per-IP limits are deliberately generous because a whole campus often shares one NAT address; the per-account limit is what stops password guessing.
 - **Logging:** structured JSON logs with automatic redaction of passwords, secrets, tokens and signatures. An audit log records logins, event changes, payments and refunds, attendance edits, certificates, role and status changes, settings changes and exports.
 - **Headers:** CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` (camera only on our own origin, for the scanner).
 
@@ -320,7 +330,7 @@ Put the app behind HTTPS and forward `x-forwarded-for`, `x-forwarded-host` and `
 | Symptom | Fix |
 |---|---|
 | `Invalid server environment: AUTH_SECRET…` | Set `AUTH_SECRET` to 32 or more characters. |
-| "Online payments are not configured yet" | Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` and restart the server. Free events work without Razorpay. |
+| "Online payment is unavailable" on a paid event | Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` and restart the server. Until then, paid registration is refused up front, so no seat is held for a payment that can't happen. Free events work without Razorpay. |
 | Payment succeeded but the registration is still pending | Check that the webhook URL is reachable and that `RAZORPAY_WEBHOOK_SECRET` matches. Look at the `payment_webhooks` table (`status`, `error`). The registration page updates live when the webhook lands. |
 | Realtime indicator stays on "Connecting…" | `DIRECT_DATABASE_URL` must be a direct (non-PgBouncer) connection so `LISTEN` works. Behind nginx, disable proxy buffering for `/api/realtime`. |
 | The camera doesn't start on the scanner | Browsers only allow camera access over HTTPS or on localhost. Grant permission, or use manual entry. |

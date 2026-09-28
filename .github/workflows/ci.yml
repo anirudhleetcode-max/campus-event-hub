@@ -75,9 +75,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx prisma migrate deploy && npm run db:seed
       - run: npm run build
+      # The Playwright webServer command creates, migrates and seeds campus_hub_e2e itself.
       - run: npm run test:e2e
+        env:
+          E2E_DATABASE_URL: postgresql://campus:campus@localhost:5432/campus_hub_e2e?schema=public
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
