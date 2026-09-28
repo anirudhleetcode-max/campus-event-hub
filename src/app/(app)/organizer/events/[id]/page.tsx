@@ -13,7 +13,7 @@ import { AnnouncementForm } from "@/components/organizer/announcement-form";
 import { formatAmount } from "@/components/organizer/format";
 import { EVENT_MODE, EVENT_STATUS, REGISTRATION_FIELDS, type RegistrationField } from "@/lib/labels";
 import { formatDateTime, formatNumber, formatPercent, relativeTime } from "@/lib/utils";
-import { loadStaffEvent } from "../../../_lib/guard";
+import { loadStaffEvent } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Event overview" };
 

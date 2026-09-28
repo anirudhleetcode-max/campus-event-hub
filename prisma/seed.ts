@@ -97,7 +97,7 @@ async function main() {
     name: "Ananya Iyer", email: "student@northfield.demo", role: "STUDENT", collegeId: northfield.id, departmentId: nDepts[0]!.id,
     year: 3, studentId: "NIT21CS042", phone: "+91 98450 12345", interests: ["ai", "hackathons", "music"],
   });
-  const rAdmin = await mkUser({ name: "Farah Sheikh", email: "admin@riverside.demo", role: "COLLEGE_ADMIN", collegeId: riverside.id });
+  await mkUser({ name: "Farah Sheikh", email: "admin@riverside.demo", role: "COLLEGE_ADMIN", collegeId: riverside.id });
   const rOrganizer = await mkUser({ name: "Neel Joshi", email: "organizer@riverside.demo", role: "EVENT_ORGANIZER", collegeId: riverside.id, departmentId: rDepts[0]!.id });
   await mkUser({ name: "Suspended Student", email: "suspended@northfield.demo", role: "STUDENT", collegeId: northfield.id, status: "SUSPENDED" });
 
@@ -150,7 +150,8 @@ async function main() {
 
   const events: { id: string; spec: Spec; startsAt: Date; endsAt: Date }[] = [];
   for (const s of specs) {
-    const startsAt = at(s.start);
+    // Round to the hour so demo schedules read naturally (e.g. 10:00, not 10:07).
+    const startsAt = new Date(Math.round((now + s.start) / HOUR) * HOUR);
     const endsAt = new Date(startsAt.getTime() + s.durationH * HOUR);
     const deadline = s.deadline !== undefined ? at(s.deadline) : new Date(startsAt.getTime() - 12 * HOUR);
     const dept = s.dept ? depts.find((d) => d.code === s.dept && d.collegeId === s.college.id) : undefined;
@@ -219,7 +220,7 @@ async function main() {
   for (const ev of events) {
     const { spec } = ev;
     if (spec.fill === 0) continue;
-    const pool = students.filter((u) => (spec.college.id === northfield.id ? rand() < 0.85 : rand() < 0.6));
+    const pool = students.filter(() => (spec.college.id === northfield.id ? rand() < 0.85 : rand() < 0.6));
     const target = Math.min(pool.length, Math.round(spec.capacity * spec.fill), spec.capacity);
     // The main demo student is registered for a curated set of events only.
     const demoStudentEvents = ["HackNorth", "Robotics", "Startup", "Data Science", "Building with LLMs"];

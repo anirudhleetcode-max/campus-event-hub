@@ -11,7 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { ROLE_LABEL } from "@/lib/labels";
 import { createUserSchema } from "@/lib/validators";
-import { zodErrors } from "@/lib/form";
+import { zodToFieldErrors } from "@/lib/form-errors";
 import { createUserAction } from "@/app/actions/admin";
 
 type Opt = { id: string; name: string };
@@ -28,7 +28,7 @@ export function CreateUserDialog({ roles, colleges, departments, fixedCollegeId 
     e.preventDefault();
     if (pending) return;
     const parsed = createUserSchema.safeParse(form);
-    if (!parsed.success) return setErrors(zodErrors(parsed.error));
+    if (!parsed.success) return setErrors(zodToFieldErrors(parsed.error));
     setPending(true);
     const res = await createUserAction(form);
     setPending(false);

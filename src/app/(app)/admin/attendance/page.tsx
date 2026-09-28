@@ -7,6 +7,7 @@ import { db } from "@/server/db";
 import { PageHeader, EmptyState, Progress, StatCard } from "@/components/ui/misc";
 import { Card } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
+import { DownloadLink } from "@/components/ui/download-link";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { UrlSelect } from "@/components/ui/url-controls";
 import { EventStatusBadge } from "@/components/ui/status-badges";
@@ -48,9 +49,9 @@ export default async function AttendanceOverview({ searchParams }: { searchParam
         actions={
           <>
             <UrlSelect param="when" label="Period" options={[{ value: "recent", label: "Last 60 days" }, { value: "upcoming", label: "Upcoming" }, { value: "past", label: "Past" }]} allLabel={null} />
-            <a href="/api/exports/attendance" className={buttonClasses("outline")}>
+            <DownloadLink href="/api/exports/attendance" className={buttonClasses("outline")}>
               <Download /> Export CSV
-            </a>
+            </DownloadLink>
           </>
         }
       />

@@ -15,7 +15,7 @@ import { RegistrationActions, type RegistrationDetails } from "@/components/orga
 import { ForbiddenState } from "@/components/organizer/forbidden-state";
 import { CERTIFICATE_TYPE, REGISTRATION_STATUS } from "@/lib/labels";
 import { formatDate, formatTime } from "@/lib/utils";
-import { guarded, loadStaffEvent, pageParam, param } from "../../../../_lib/guard";
+import { guarded, loadStaffEvent, pageParam, param } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Registrations" };
 

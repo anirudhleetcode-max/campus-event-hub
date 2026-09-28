@@ -9,6 +9,7 @@ import { db } from "@/server/db";
 import { PageHeader, StatCard, EmptyState } from "@/components/ui/misc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
+import { DownloadLink } from "@/components/ui/download-link";
 import { UrlSelect, UrlDateInput } from "@/components/ui/url-controls";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { BarList } from "@/components/charts/bar-list";
@@ -48,16 +49,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         }
         actions={
           <>
-            <UrlSelect param="range" label="Date range" options={RANGE_OPTIONS} allLabel={null} />
+            <UrlSelect param="range" label="Date range" options={RANGE_OPTIONS} allLabel={null} defaultValue="30d" />
             {range.preset === "custom" && (
               <>
                 <UrlDateInput param="from" label="From date" />
                 <UrlDateInput param="to" label="To date" />
               </>
             )}
-            <a href={exportHref} className={buttonClasses("outline", "md")}>
+            <DownloadLink href={exportHref} className={buttonClasses("outline", "md")}>
               <Download /> Export CSV
-            </a>
+            </DownloadLink>
           </>
         }
       />

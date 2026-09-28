@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { AppError, notFound } from "../errors";
+import { razorpayConfigured } from "../env";
 import { audit } from "../audit";
 import { friendlyCode, randomToken } from "../crypto";
 import { notify } from "../notifications";
@@ -102,6 +103,10 @@ export async function registerForEvent(actor: SessionUser, raw: unknown): Promis
       }
 
       const paid = event.feeAmount > 0;
+      if (paid && !razorpayConfigured()) {
+        // Don't hold a seat nobody can pay for.
+        throw new AppError("PAYMENTS_NOT_CONFIGURED", "Online payments are not configured yet, so paid registration is unavailable. Please contact the event organizer.");
+      }
       const data = {
         status: paid ? ("PENDING_PAYMENT" as const) : ("CONFIRMED" as const),
         holdExpiresAt: paid ? new Date(now.getTime() + settings.seatHoldMinutes * 60_000) : null,

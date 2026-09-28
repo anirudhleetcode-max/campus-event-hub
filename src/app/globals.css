@@ -169,6 +169,11 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  /* Grid items default to min-width:auto, which lets wide content (charts,
+     long URLs, tables) push a column past the viewport. Allow shrinking. */
+  :where(.grid) > * {
+    min-width: 0;
+  }
   ::selection {
     background: var(--primary-soft);
   }

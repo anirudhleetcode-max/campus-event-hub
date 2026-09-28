@@ -70,6 +70,16 @@ export const CERTIFICATE_TYPE: Record<CertificateType, string> = {
   SPEAKER: "Speaker",
 };
 
+/** Default heading printed on each certificate type (templates can override). */
+export const CERTIFICATE_HEADING: Record<CertificateType, string> = {
+  PARTICIPATION: "Certificate of Participation",
+  WINNER: "Certificate of Achievement",
+  RUNNER_UP: "Certificate of Achievement",
+  VOLUNTEER: "Certificate of Appreciation",
+  ORGANIZER: "Certificate of Appreciation",
+  SPEAKER: "Certificate of Appreciation",
+};
+
 /** Optional profile fields an organizer can require at registration. */
 export const REGISTRATION_FIELDS = {
   phone: "Phone number",

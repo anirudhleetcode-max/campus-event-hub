@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { HoldCountdown } from "@/components/payments/hold-countdown";
 import { PayButton } from "@/components/payments/pay-button";
+import { razorpayConfigured } from "@/server/env";
 import { registrationCta, type RegistrationCta } from "@/lib/event-status";
 import { EVENT_MODE, ROLE_LABEL } from "@/lib/labels";
 import { formatDateRange, formatDateTime, formatMoney } from "@/lib/utils";
@@ -92,6 +93,7 @@ export default async function RegisterPage({ params }: PageProps<"/events/[slug]
 
   const cta = registrationCta(event, event.seatsTaken, myReg);
   const paid = event.feeAmount > 0;
+  const paymentsUnavailable = paid && !razorpayConfigured();
   const seatsLeft = Math.max(0, event.capacity - event.seatsTaken);
   const venue =
     event.mode === "ONLINE" ? "Online" : [event.venueName, event.city].filter(Boolean).join(", ") || "Venue to be announced";
@@ -108,7 +110,14 @@ export default async function RegisterPage({ params }: PageProps<"/events/[slug]
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div className="order-2 min-w-0 space-y-6 lg:order-1">
-          {cta.state === "open" && (
+          {cta.state === "open" && paymentsUnavailable && (
+            <Alert tone="warning" title="Online payment is unavailable">
+              This event has a registration fee, but online payments haven&apos;t been set up yet, so registration can&apos;t be completed right now.
+              Please contact the organizer or check back later.
+            </Alert>
+          )}
+
+          {cta.state === "open" && !paymentsUnavailable && (
             <Card>
               <CardHeader>
                 <CardTitle>Your details</CardTitle>

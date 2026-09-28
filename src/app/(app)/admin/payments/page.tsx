@@ -9,6 +9,7 @@ import { PageHeader, EmptyState, StatCard, Alert } from "@/components/ui/misc";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
+import { DownloadLink } from "@/components/ui/download-link";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput, UrlSelect } from "@/components/ui/url-controls";
@@ -32,9 +33,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         title="Payments"
         description="Every transaction processed through Razorpay, with refunds and reconciliation references."
         actions={
-          <a href="/api/exports/payments" className={buttonClasses("outline")}>
+          <DownloadLink href="/api/exports/payments" className={buttonClasses("outline")}>
             <Download /> Export CSV
-          </a>
+          </DownloadLink>
         }
       />
       {refundQueue > 0 && (

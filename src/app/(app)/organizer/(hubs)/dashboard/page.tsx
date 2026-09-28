@@ -16,7 +16,7 @@ import { EventStatusBadge, RegistrationStatusBadge } from "@/components/ui/statu
 import { LiveRefresh } from "@/components/realtime/live-refresh";
 import { formatAmount } from "@/components/organizer/format";
 import { formatDate, formatNumber, formatPercent, formatTime, fromDateTimeLocal, relativeTime, toDateTimeLocal } from "@/lib/utils";
-import { requireStaff } from "../_lib/guard";
+import { requireStaff } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Organizer dashboard" };
 

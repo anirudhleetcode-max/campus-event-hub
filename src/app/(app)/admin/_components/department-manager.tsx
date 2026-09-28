@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { departmentSchema } from "@/lib/validators";
-import { zodErrors } from "@/lib/form";
+import { zodToFieldErrors } from "@/lib/form-errors";
 import { deleteDepartmentAction, saveDepartmentAction } from "@/app/actions/admin";
 
 type Dept = { id: string; name: string; code: string; collegeId: string };
@@ -26,7 +26,7 @@ export function DepartmentDialog({ dept, colleges, defaultCollegeId }: { dept?: 
     e.preventDefault();
     if (pending) return;
     const parsed = departmentSchema.safeParse(v);
-    if (!parsed.success) return setErrors(zodErrors(parsed.error));
+    if (!parsed.success) return setErrors(zodToFieldErrors(parsed.error));
     setPending(true);
     const res = await saveDepartmentAction(dept?.id ?? null, v);
     setPending(false);

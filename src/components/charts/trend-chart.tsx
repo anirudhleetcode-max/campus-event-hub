@@ -73,7 +73,7 @@ export function TrendChart({
           </table>
         </div>
       ) : (
-        <div style={{ height }} role="img" aria-label={`${valueLabel} trend: total ${format(total)}`}>
+        <div style={{ height }} className="min-w-0" role="img" aria-label={`${valueLabel} trend: total ${format(total)}`}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
               <defs>

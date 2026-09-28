@@ -35,6 +35,5 @@ export function Checkbox({ className, ...props }: Omit<React.InputHTMLAttributes
 }
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  // eslint-disable-next-line jsx-a11y/label-has-associated-control
   return <label className={cn("text-sm font-medium text-foreground", className)} {...props} />;
 }

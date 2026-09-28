@@ -154,6 +154,14 @@ export default async function StudentDashboardPage() {
     ...(d.feedbackDue[0] ? [{ href: `/my/registrations/${d.feedbackDue[0].id}/feedback`, label: "Submit feedback", icon: MessageSquareText }] : []),
   ];
 
+  // Events where this student volunteers as a QR scanner.
+  const duties = await db.eventVolunteer.findMany({
+    where: { userId: user.id, canScan: true, event: { endsAt: { gte: new Date() }, status: { notIn: ["CANCELLED", "ARCHIVED", "DRAFT"] } } },
+    select: { event: { select: { id: true, title: true, startsAt: true } } },
+    orderBy: { event: { startsAt: "asc" } },
+    take: 5,
+  });
+
   return (
     <>
       <PageHeader
@@ -357,6 +365,30 @@ export default async function StudentDashboardPage() {
         </div>
 
         <aside className="space-y-6">
+          {duties.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="size-4 text-primary" aria-hidden /> Volunteer duties
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="divide-y divide-border">
+                  {duties.map(({ event }) => (
+                    <li key={event.id} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{event.title}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(event.startsAt)}</p>
+                      </div>
+                      <Link href={`/organizer/events/${event.id}/scan`} className={buttonClasses("soft", "sm")}>
+                        Open scanner
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { announcementSchema } from "@/lib/validators";
-import { zodErrors } from "@/lib/form";
+import { zodToFieldErrors } from "@/lib/form-errors";
 import { sendAnnouncementAction } from "@/app/actions/admin";
 
 const AUDIENCES = [
@@ -29,7 +29,7 @@ export function AnnouncementForm({ events, colleges }: { events: { id: string; t
     e.preventDefault();
     if (pending) return;
     const parsed = announcementSchema.safeParse(v);
-    if (!parsed.success) return setErrors(zodErrors(parsed.error));
+    if (!parsed.success) return setErrors(zodToFieldErrors(parsed.error));
     if (v.audience === "EVENT_PARTICIPANTS" && !v.eventId) return setErrors({ eventId: "Select an event" });
     setPending(true);
     const res = await sendAnnouncementAction(v);

@@ -9,6 +9,7 @@ import { PageHeader, EmptyState } from "@/components/ui/misc";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
+import { DownloadLink } from "@/components/ui/download-link";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput, UrlSelect } from "@/components/ui/url-controls";
@@ -40,9 +41,9 @@ export default async function CertificatesAdmin({ searchParams }: { searchParams
         title="Certificates"
         description={`${total.toLocaleString("en-IN")} certificates. Every certificate can be verified publicly by its ID or QR code.`}
         actions={
-          <a href="/api/exports/certificates" className={buttonClasses("outline")}>
+          <DownloadLink href="/api/exports/certificates" className={buttonClasses("outline")}>
             <Download /> Export CSV
-          </a>
+          </DownloadLink>
         }
       />
       <Card>

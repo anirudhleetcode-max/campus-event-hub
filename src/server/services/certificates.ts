@@ -10,7 +10,7 @@ import { can, requireEventAccess } from "../auth/permissions";
 import type { SessionUser } from "../auth/session";
 import { renderCertificatePdf } from "../pdf/certificate";
 import { issueCertificatesSchema } from "@/lib/validators";
-import { CERTIFICATE_TYPE } from "@/lib/labels";
+import { CERTIFICATE_HEADING, CERTIFICATE_TYPE } from "@/lib/labels";
 import { formatDate, formatDateRange } from "@/lib/utils";
 
 const DEFAULT_BODY: Record<CertificateType, string> = {
@@ -180,7 +180,7 @@ export async function certificatePdf(actor: SessionUser, code: string): Promise<
   const bytes = await renderCertificatePdf({
     code: c.code,
     typeLabel: CERTIFICATE_TYPE[c.type],
-    heading: c.template?.heading ?? `Certificate of ${CERTIFICATE_TYPE[c.type]}`,
+    heading: c.template?.heading ?? CERTIFICATE_HEADING[c.type],
     recipientName: c.recipientName,
     body: fillTemplate(c.template?.body ?? DEFAULT_BODY[c.type], vars),
     eventTitle: c.event.title,

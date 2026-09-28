@@ -9,7 +9,7 @@ import { ForbiddenState } from "@/components/organizer/forbidden-state";
 import { EventHeaderActions } from "@/components/organizer/event-status-actions";
 import { EDITABLE_STATUSES, PUBLIC_STATUSES } from "@/lib/event-status";
 import { formatDateRange } from "@/lib/utils";
-import { loadStaffEvent } from "../../_lib/guard";
+import { loadStaffEvent } from "@/app/(app)/organizer/_lib/guard";
 
 export default async function EventStaffLayout({ children, params }: LayoutProps<"/organizer/events/[id]">) {
   const { id } = await params;

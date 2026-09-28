@@ -55,10 +55,12 @@ export function SearchInput({ placeholder = "Search…", param = "q", className,
 }
 
 /** A <select> bound to a URL search parameter. */
-export function UrlSelect({ param, options, label, className, allLabel = "All" }: { param: string; options: { value: string; label: string }[]; label: string; className?: string; allLabel?: string | null }) {
+export function UrlSelect({
+  param, options, label, className, allLabel = "All", defaultValue = "",
+}: { param: string; options: { value: string; label: string }[]; label: string; className?: string; allLabel?: string | null; defaultValue?: string }) {
   const { update, params } = useUpdateParams();
   return (
-    <Select aria-label={label} value={params.get(param) ?? ""} onChange={(e) => update(param, e.target.value || null)} className={cn("w-auto min-w-36", className)}>
+    <Select aria-label={label} value={params.get(param) ?? defaultValue} onChange={(e) => update(param, e.target.value || null)} className={cn("w-auto min-w-36", className)}>
       {allLabel !== null && <option value="">{allLabel}</option>}
       {options.map((o) => (
         <option key={o.value} value={o.value}>

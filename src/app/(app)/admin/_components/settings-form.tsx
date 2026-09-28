@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox, Input, Label } from "@/components/ui/input";
 import { settingsSchema } from "@/lib/validators";
-import { zodErrors } from "@/lib/form";
+import { zodToFieldErrors } from "@/lib/form-errors";
 import { saveSettingsAction } from "@/app/actions/admin";
 
 type Values = { platformName: string; supportEmail: string; seatHoldMinutes: string; reminderOffsetsHours: string; allowStudentSignup: boolean; maintenanceBanner: string };
@@ -23,7 +23,7 @@ export function SettingsForm({ initial }: { initial: Values }) {
     e.preventDefault();
     if (pending) return;
     const parsed = settingsSchema.safeParse(v);
-    if (!parsed.success) return setErrors(zodErrors(parsed.error));
+    if (!parsed.success) return setErrors(zodToFieldErrors(parsed.error));
     setPending(true);
     const res = await saveSettingsAction(v);
     setPending(false);

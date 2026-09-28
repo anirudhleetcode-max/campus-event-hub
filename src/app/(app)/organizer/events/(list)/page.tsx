@@ -6,7 +6,7 @@ import { listStaffEvents } from "@/server/services/events";
 import { buttonClasses } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
 import { EventTable } from "@/components/organizer/event-table";
-import { eventStatusParam, pageParam, param, requireStaff } from "../_lib/guard";
+import { eventStatusParam, pageParam, param, requireStaff } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Events" };
 

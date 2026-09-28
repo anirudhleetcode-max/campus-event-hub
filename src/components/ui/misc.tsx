@@ -138,7 +138,7 @@ export function DescriptionList({ items, className }: { items: { label: string; 
       {items.map((it) => (
         <div key={it.label} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{it.label}</dt>
-          <dd className="font-medium break-words sm:text-right">{it.value}</dd>
+          <dd className="min-w-0 font-medium [overflow-wrap:anywhere] sm:text-right">{it.value}</dd>
         </div>
       ))}
     </dl>

@@ -190,7 +190,7 @@ export default async function EventDetailsPage({ params }: Props) {
       <div className="container-page py-6 sm:py-10">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.title }]} />
 
-        <div className="mt-4 aspect-[16/9] overflow-hidden rounded-2xl border border-border bg-surface-2 sm:aspect-[21/8]">
+        <div className="mt-4 aspect-[16/8] max-h-72 w-full overflow-hidden rounded-2xl border border-border bg-surface-2 sm:aspect-auto sm:h-64 lg:h-72">
           <EventCover bannerUrl={event.bannerUrl} title={event.title} categorySlug={event.category.slug} color={event.category.color} priority />
         </div>
 

@@ -8,7 +8,7 @@ import { Field } from "@/components/ui/field";
 import { Checkbox, Input, Label } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { collegeSchema } from "@/lib/validators";
-import { zodErrors } from "@/lib/form";
+import { zodToFieldErrors } from "@/lib/form-errors";
 import { saveCollegeAction } from "@/app/actions/admin";
 
 export type CollegeFormValues = {
@@ -27,7 +27,7 @@ export function CollegeForm({ id, initial }: { id: string | null; initial: Colle
     e.preventDefault();
     if (pending) return;
     const parsed = collegeSchema.safeParse(v);
-    if (!parsed.success) return setErrors(zodErrors(parsed.error));
+    if (!parsed.success) return setErrors(zodToFieldErrors(parsed.error));
     setPending(true);
     const res = await saveCollegeAction(id, v);
     setPending(false);

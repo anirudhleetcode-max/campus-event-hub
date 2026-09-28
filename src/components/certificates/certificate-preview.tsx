@@ -1,6 +1,6 @@
 import type { CertificateType } from "@prisma/client";
 import { Award } from "lucide-react";
-import { CERTIFICATE_TYPE } from "@/lib/labels";
+import { CERTIFICATE_HEADING, CERTIFICATE_TYPE } from "@/lib/labels";
 import { cn, formatDate } from "@/lib/utils";
 
 type Props = {
@@ -36,7 +36,7 @@ export function CertificatePreview({ collegeName, type, recipientName, eventTitl
       <div className="relative flex h-full flex-col items-center justify-center gap-[0.35em] px-[10%] py-[7%] text-[length:clamp(7px,2.6cqw,13px)]">
         <p className="line-clamp-1 text-[0.95em] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{collegeName}</p>
         <p className="font-serif text-[1.9em] leading-tight font-semibold" style={{ color: accent }}>
-          Certificate of {CERTIFICATE_TYPE[type]}
+          {CERTIFICATE_HEADING[type]}
         </p>
         <p className="text-[0.85em] text-muted-foreground">This is to certify that</p>
         <p className="line-clamp-1 max-w-full border-b border-border px-4 pb-[0.2em] font-serif text-[1.7em] leading-tight font-semibold italic">

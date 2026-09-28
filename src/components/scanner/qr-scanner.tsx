@@ -136,9 +136,8 @@ export function QrScanner({ eventId, initial }: { eventId: string; initial: { re
     [eventId, record],
   );
 
-  const tick = React.useCallback(
+  const decodeFrame = React.useCallback(
     (ts: number) => {
-      rafRef.current = requestAnimationFrame(tick);
       if (ts - lastFrameRef.current < FRAME_INTERVAL_MS || inFlightRef.current) return;
       lastFrameRef.current = ts;
       const video = videoRef.current;
@@ -196,13 +195,17 @@ export function QrScanner({ eventId, initial }: { eventId: string; initial: { re
         const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId;
         setDeviceIndex(cams.findIndex((d) => d.deviceId === activeId));
         lastFrameRef.current = 0;
-        rafRef.current = requestAnimationFrame(tick);
+        const loop = (ts: number) => {
+          rafRef.current = requestAnimationFrame(loop);
+          decodeFrame(ts);
+        };
+        rafRef.current = requestAnimationFrame(loop);
       } catch (err) {
         stopCamera();
         setCamera(cameraError(err));
       }
     },
-    [stopCamera, tick],
+    [stopCamera, decodeFrame],
   );
 
   function switchCamera() {
@@ -409,7 +412,7 @@ function ResultCard({ result }: { result: LogEntry | null }) {
     <div key={result.id} role={result.kind === "error" ? "alert" : "status"} aria-live="assertive" className={cn("flex items-start gap-4 rounded-xl border-2 p-5", tone.cls)}>
       <tone.Icon className="size-10 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-semibold tracking-wide uppercase">{tone.heading}</p>
+        <h3 className="text-sm font-semibold tracking-wide uppercase">{tone.heading}</h3>
         {result.kind === "error" ? (
           <p className="text-base font-medium">{result.message}</p>
         ) : (

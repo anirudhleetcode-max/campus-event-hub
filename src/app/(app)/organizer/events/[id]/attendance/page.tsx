@@ -14,7 +14,7 @@ import { SearchInput, UrlSelect } from "@/components/ui/url-controls";
 import { ForbiddenState } from "@/components/organizer/forbidden-state";
 import { LiveAttendance, UndoCheckInButton } from "@/components/organizer/live-attendance";
 import { formatDateTime } from "@/lib/utils";
-import { guarded, loadStaffEvent, pageParam, param } from "../../../../_lib/guard";
+import { guarded, loadStaffEvent, pageParam, param } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Attendance" };
 

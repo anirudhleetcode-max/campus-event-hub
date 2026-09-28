@@ -3,7 +3,7 @@ import { attendanceSummary } from "@/server/services/attendance";
 import { Alert } from "@/components/ui/misc";
 import { ForbiddenState } from "@/components/organizer/forbidden-state";
 import { QrScanner } from "@/components/scanner/qr-scanner";
-import { guarded, loadStaffEvent } from "../../../../_lib/guard";
+import { guarded, loadStaffEvent } from "@/app/(app)/organizer/_lib/guard";
 
 export const metadata: Metadata = { title: "Scan passes" };
 

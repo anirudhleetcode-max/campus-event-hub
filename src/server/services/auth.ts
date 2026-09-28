@@ -17,8 +17,10 @@ const GENERIC_LOGIN_ERROR = "The email or password you entered is incorrect.";
 
 export async function login(raw: unknown, meta: { ip: string; userAgent?: string }) {
   const input = loginSchema.parse(raw);
-  await rateLimit(`login:ip:${meta.ip}`, 20, 15 * 60);
-  await rateLimit(`login:email:${input.email}`, 8, 15 * 60);
+  // Per-IP limits are generous because a whole campus often shares one NAT
+  // address; the per-account limit is what stops password guessing.
+  await rateLimit(`login:ip:${meta.ip}`, 200, 15 * 60);
+  await rateLimit(`login:email:${input.email}`, 10, 15 * 60);
 
   const user = await db.user.findUnique({
     where: { email: input.email },
@@ -45,7 +47,7 @@ export async function login(raw: unknown, meta: { ip: string; userAgent?: string
 export async function signup(raw: unknown, meta: { ip: string; userAgent?: string }) {
   const settings = await getSettings();
   if (!settings.allowStudentSignup) throw new AppError("FORBIDDEN", "Self sign-up is currently disabled. Ask your college administrator for an account.");
-  await rateLimit(`signup:ip:${meta.ip}`, 10, 60 * 60);
+  await rateLimit(`signup:ip:${meta.ip}`, 60, 60 * 60);
   const input = signupSchema.parse(raw);
   const college = await db.college.findFirst({ where: { id: input.collegeId, status: "ACTIVE", deletedAt: null }, select: { id: true } });
   if (!college) throw new AppError("VALIDATION", "Please select a valid college.", { fieldErrors: { collegeId: "Select your college" } });
@@ -74,7 +76,7 @@ const resetHash = (token: string) => hmacSha256Hex(env().AUTH_SECRET, `reset:${t
 /** Always succeeds from the caller's perspective (no account enumeration). */
 export async function requestPasswordReset(raw: unknown, meta: { ip: string }) {
   const { email } = forgotPasswordSchema.parse(raw);
-  await rateLimit(`reset:ip:${meta.ip}`, 5, 60 * 60);
+  await rateLimit(`reset:ip:${meta.ip}`, 30, 60 * 60);
   await rateLimit(`reset:email:${email}`, 3, 60 * 60);
   const user = await db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, status: true } });
   if (!user || user.status !== "ACTIVE") return;
