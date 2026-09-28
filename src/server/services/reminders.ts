@@ -45,13 +45,19 @@ export async function sendDueReminders(now = new Date()) {
     });
     if (regs.length === 0) continue;
 
-    // Claim first (idempotency), then deliver.
-    await db.reminderLog.createMany({
+    // Claim first, then deliver only what this run claimed. The insert skips
+    // rows another (overlapping) run already claimed and returns only the new
+    // rows, so concurrent cron invocations never double-send.
+    const claimed = await db.reminderLog.createManyAndReturn({
       data: regs.flatMap((r) => due.map((o) => ({ registrationId: r.id, offsetHours: o, delivered: o === nearest }))),
       skipDuplicates: true,
+      select: { registrationId: true, offsetHours: true },
     });
+    const mine = new Set(claimed.filter((c) => c.offsetHours === nearest).map((c) => c.registrationId));
+    const recipients = regs.filter((r) => mine.has(r.id));
+    if (recipients.length === 0) continue;
     await notify(
-      regs.map((r) => r.userId),
+      recipients.map((r) => r.userId),
       {
         type: "EVENT_REMINDER",
         title: `Reminder: ${event.title} starts ${describeOffset(nearest)}`,
@@ -61,8 +67,8 @@ export async function sendDueReminders(now = new Date()) {
         emailCta: "View event details",
       },
     );
-    sent += regs.length;
-    logger.info("Reminders sent", { eventId: event.id, offsetHours: nearest, count: regs.length });
+    sent += recipients.length;
+    logger.info("Reminders sent", { eventId: event.id, offsetHours: nearest, count: recipients.length });
   }
   return { events: events.length, sent };
 }

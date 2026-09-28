@@ -21,14 +21,15 @@ Every step writes to one PostgreSQL database. Every permission is enforced on th
 6. [Database, migrations and seed data](#database-migrations--seed-data)
 7. [Demo accounts](#demo-accounts)
 8. [Testing](#testing)
-9. [Razorpay setup (payments and webhooks)](#razorpay-setup)
-10. [Storage setup](#storage-setup)
-11. [Email setup](#email-setup)
-12. [Scheduled jobs (reminders and status automation)](#scheduled-jobs)
-13. [Deployment](#deployment)
-14. [Production checklist](#production-checklist)
-15. [Security model](#security-model)
-16. [Troubleshooting](#troubleshooting)
+9. [Production integration setup](#production-integration-setup)
+10. [Razorpay setup (payments and webhooks)](#razorpay-setup)
+11. [Storage setup](#storage-setup)
+12. [Email setup](#email-setup)
+13. [Scheduled jobs (reminders and status automation)](#scheduled-jobs)
+14. [Deployment](#deployment)
+15. [Production checklist](#production-checklist)
+16. [Security model](#security-model)
+17. [Troubleshooting](#troubleshooting)
 
 **Project documents:** [Demo guide](docs/DEMO_GUIDE.md) · [Project review](docs/PROJECT_REVIEW.md) · [Project explanation](docs/PROJECT_EXPLANATION.md) · [Business Model Canvas (PPTX)](docs/Business_Model_Canvas_Apex_Vision.pptx) / [PDF](docs/Business_Model_Canvas_Apex_Vision.pdf)
 
@@ -147,6 +148,7 @@ docker run -d --name campus-pg -e POSTGRES_USER=campus -e POSTGRES_PASSWORD=camp
 | `npm run build` / `npm start` | Production build / start |
 | `npm run typecheck` | `next typegen` + `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run check:config` | Validate the environment for the current `APP_ENV` (core, database, Razorpay, email, storage, cron). Never prints secret values; exits 1 on problems |
 | `npm test` | Unit and integration tests (uses a separate `campus_hub_test` database) |
 | `npm run test:e2e` | Playwright end-to-end tests (needs a seeded database and a production build) |
 | `npm run db:migrate` | Create or apply a **development** migration (`prisma migrate dev`) |
@@ -164,16 +166,16 @@ See [`.env.example`](./.env.example). Use **separate values for development, sta
 | `DATABASE_URL` | yes | Pooled connection string (a PgBouncer or Neon pooler URL is fine). |
 | `DIRECT_DATABASE_URL` | yes | Direct, non-pooled connection, used for migrations and realtime `LISTEN`. |
 | `AUTH_SECRET` | yes | 32+ random characters, used to HMAC session and reset tokens. Rotating it signs everyone out. |
-| `CRON_SECRET` | yes (prod) | Bearer token required by `/api/cron/*`. |
+| `CRON_SECRET` | yes (prod) | Bearer token required by `/api/cron/*` (16+ characters). |
 | `NEXT_PUBLIC_APP_URL` | yes | Public origin. Used in emails, certificate QR codes and CSRF origin checks. |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | for paid events | Use `rzp_test_…` keys outside production. The key secret never leaves the server. |
-| `RAZORPAY_WEBHOOK_SECRET` | for paid events | The secret you set on the Razorpay webhook. |
-| `EMAIL_API_KEY`, `EMAIL_FROM` | recommended | Resend API key and a verified sender. Without them, emails are recorded in `email_logs` as `SKIPPED`. |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | for paid events | Use `rzp_test_…` keys outside production; `rzp_live_…` keys are **refused** unless `APP_ENV=production`. The key secret never leaves the server. |
+| `RAZORPAY_WEBHOOK_SECRET` | for paid events (required in prod) | The secret you set on the Razorpay webhook. |
+| `EMAIL_API_KEY`, `EMAIL_FROM` | recommended | Resend API key and a verified sender (`Name <address@domain>`). Without the key, emails are recorded in `email_logs` as `SKIPPED`; with an invalid sender nothing is sent. |
 | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`, `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_PUBLIC_URL` | yes (prod) | S3-compatible storage. Without them, non-production uploads are stored in `.data/uploads` and served by `/uploads/*`; uploads are disabled in production. |
 | `NEXT_PUBLIC_TIMEZONE` | no | Display and input timezone. Defaults to `Asia/Kolkata`. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warn` or `error`. |
 
-Environment variables are validated when first used (`src/server/env.ts`), so a misconfiguration fails loudly with a clear message.
+Environment variables are validated when first used (`src/server/env.ts`), so a misconfiguration fails loudly with a clear message. `npm run check:config` validates everything up front (the rules live in `src/server/config.ts`), and the server logs a value-free configuration summary at startup (`src/instrumentation.ts`).
 
 ## Database, migrations and seed data
 
@@ -264,7 +266,57 @@ The integration tests run against Postgres (see `vitest.config.mts`; override wi
 - **Subscription limits:** a college's plan `eventLimit` caps its active events (cancelled and archived events don't count). Marking an event completed by hand sends feedback requests and allows certificates before the scheduled start.
 - Unit tests: the state machine, RBAC matrix, signature helpers, CSV injection protection, log redaction, QR parsing, image type sniffing, validators, and timezone parsing.
 
+**Integration tests** (`tests/integration/integrations.test.ts` and `tests/unit/config.test.ts`) cover the external services without real credentials:
+
+- **Email (Resend):** the request sent to the Resend API, a provider error recorded as `FAILED` without throwing, one retry on `429`, network errors, missing `EMAIL_API_KEY` (`SKIPPED`), a missing or invalid `EMAIL_FROM` (nothing sent). An email outage never changes the registration or the in-app notification, and the API key never appears in logs or `email_logs`.
+- **Storage (S3):** the exact `PutObject` sent to the bucket and the returned public URL; SVG, undersized and oversized files rejected before anything is uploaded; partial storage settings refused rather than silently falling back to local disk; storage required in production; the local fallback and path-traversal protection; upload permissions by role.
+- **Cron:** every endpoint rejects a missing, wrong or malformed `Authorization` header, and rejects everything when `CRON_SECRET` is unset. With the right secret each job runs. Repeated **and concurrent** runs send each reminder and each feedback request exactly once.
+- **Razorpay configuration:** `rzp_live_` keys are refused outside `APP_ENV=production` (no seat is held), and production requires the webhook secret.
+- **Configuration report:** every rule of `npm run check:config`, including that its output never contains a secret value.
+
 Only the Razorpay HTTP API is mocked in tests. Signatures are computed exactly as Razorpay computes them, and all verification code runs unmodified.
+
+## Production integration setup
+
+Current state of each external integration:
+
+| Integration | Implemented | Tested with mocks | Tested against a real service | Needs production credentials |
+|---|---|---|---|---|
+| Razorpay payments | Yes | Yes: orders, signatures, gateway re-check, webhooks, replays, failures, refunds, live-key guard | **No.** No Razorpay keys were available | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` |
+| Resend email | Yes | Yes: request format, failures, retry, missing or invalid config | **No.** No Resend key was available | `EMAIL_API_KEY`, `EMAIL_FROM` (verified domain) |
+| S3-compatible storage | Yes | Yes: upload request, validation, configuration, permissions | Partly: the real AWS SDK was run against a **local S3-compatible server** (moto) to upload, read back publicly and delete. No cloud bucket was tested | `STORAGE_KEY`, `STORAGE_SECRET`, `STORAGE_BUCKET`, `STORAGE_PUBLIC_URL`, plus `STORAGE_URL` or `STORAGE_REGION` |
+| Cron jobs | Yes | Yes: auth, all three jobs, idempotency under concurrency | Yes, locally: E2E calls the real endpoint on the production build | `CRON_SECRET` and a scheduler |
+
+**Step by step:**
+
+1. Copy `.env.example`. Every variable is explained there: which environments need it, TEST versus LIVE keys, the sender format, S3 settings and cron.
+2. Set the variables in your host's secret store. Use separate values for staging and production.
+3. Run `npm run check:config` with those variables loaded. It prints:
+
+   ```
+   CORE CONFIG ......... PASS
+   DATABASE ............ PASS
+   RAZORPAY ............ CONFIGURED (mode=LIVE)
+   EMAIL ............... CONFIGURED (provider=resend, senderDomain=…)
+   STORAGE ............. CONFIGURED (provider=s3-compatible)
+   CRON ................ CONFIGURED
+   ```
+
+   It exits with code 1 if anything would break the deployment. The Vercel build runs it automatically, so a misconfigured production deploy fails instead of going live. The server also logs the same summary at startup, without values.
+4. Follow the per-service steps below: [Razorpay](#razorpay-setup), [storage](#storage-setup), [email](#email-setup) and [scheduled jobs](#scheduled-jobs).
+5. Smoke-test on the deployed site, following the [production checklist](#production-checklist).
+
+**Rules enforced by the app and by `check:config`:**
+
+- `rzp_live_` keys are refused unless `APP_ENV=production`. Production with `rzp_test_` keys is allowed, with a warning.
+- Production needs:
+  - an `https://` `NEXT_PUBLIC_APP_URL`;
+  - `CRON_SECRET` (16 characters or more);
+  - complete S3 storage;
+  - `RAZORPAY_WEBHOOK_SECRET` whenever Razorpay keys are set.
+- With `EMAIL_API_KEY` set, `EMAIL_FROM` must be a valid sender. In production it must not use a placeholder domain.
+- Setting only some of the storage variables is an error; there is no silent fallback to local disk.
+- Secret values never reach the browser. Only the Razorpay key ID is sent to Checkout. Secrets are never printed or logged.
 
 ## Razorpay setup
 
@@ -294,14 +346,22 @@ Uploads (event banners and galleries, college logos, profile pictures, certifica
 - **AWS S3:** leave `STORAGE_URL` empty, set `STORAGE_REGION`, and use a bucket policy or CloudFront for public reads.
 - **Supabase Storage:** use the S3 endpoint `https://<project>.supabase.co/storage/v1/s3` and a public bucket URL.
 
-The storage origin is added to the Content Security Policy automatically from `STORAGE_PUBLIC_URL`. The CSP is computed in `next.config.ts`, so **`STORAGE_PUBLIC_URL` must be set at build time** as well as at runtime.
+The storage origin is added to the Content Security Policy automatically from `STORAGE_PUBLIC_URL`. The CSP is computed in `next.config.ts`, so **`STORAGE_PUBLIC_URL` must be set at build time** as well as at runtime. For Docker, pass it with `docker build --build-arg STORAGE_PUBLIC_URL=https://cdn.yourdomain.com .`.
+
+- **Public reads:** `STORAGE_PUBLIC_URL` must serve objects to anonymous users, through a public bucket, a custom domain or a CDN. The app only writes (`s3:PutObject`); browsers read through the public URL.
+- **Required variables:** `STORAGE_BUCKET`, `STORAGE_KEY`, `STORAGE_SECRET` and `STORAGE_PUBLIC_URL` are needed together. Setting only some of them is an error. In production, storage is required.
+- **Old files:** replacing an image doesn't delete the old object. Use a bucket lifecycle rule if you want old objects cleaned up.
 
 ## Email setup
 
 1. Create a [Resend](https://resend.com) account and verify your sending domain.
 2. Set `EMAIL_API_KEY` and `EMAIL_FROM="Campus Event Hub <events@yourdomain.com>"`.
 
-The app sends email for registration confirmation, payment receipts, reminders, certificates, cancellations and venue changes, password resets, and optional announcements. Every attempt is recorded in `email_logs`. Email failures never break the user action, because the in-app notification is the source of truth. To use another provider, implement the `EmailProvider` interface in `src/server/mailer.ts`.
+The app sends email for registration confirmation, payment receipts, reminders, certificates, cancellations and venue changes, password resets, and optional announcements. It also emails feedback requests when an event completes. Every attempt is recorded in `email_logs` as `SENT`, `FAILED` or `SKIPPED`. Email failures never break the user action, because the in-app notification is the source of truth.
+
+- **Retries:** one retry on a rate limit (`429`) or a server error (`5xx`).
+- **Invalid sender:** with a missing or invalid `EMAIL_FROM`, nothing is sent and the attempt is logged as `FAILED`.
+- **To test** with a real key, use "Forgot password" on an account whose address you control. The tests never send real email. To use another provider, implement the `EmailProvider` interface in `src/server/mailer.ts`.
 
 ## Scheduled jobs
 
@@ -311,11 +371,44 @@ The app sends email for registration confirmation, payment receipts, reminders, 
 | `/api/cron/reminders` | every 15 min | Send reminders at the configured offsets (7 days, 24 hours, 1 hour by default; set in Admin → Settings) |
 | `/api/cron/cleanup` | daily | Purge expired sessions, reset tokens and rate-limit windows |
 
-Each endpoint requires `Authorization: Bearer $CRON_SECRET`. Vercel Cron sends this automatically when `CRON_SECRET` is set. On other hosts, call the endpoints from any scheduler:
+**Calling the endpoints:**
+
+- **Method:** `GET`.
+- **Header:** `Authorization: Bearer <CRON_SECRET>`, matched exactly with a timing-safe comparison.
+- **Response:** `200 {"ok":true,"job":…}` with counts on success, `401` without the right secret, `500` if the job fails.
+- **If `CRON_SECRET` is unset,** every call is rejected.
+
+**Safe to repeat:** running any job more often, or twice at the same time, never duplicates side effects.
+
+- Status changes use compare-and-set updates.
+- Reminders are claimed in `reminder_logs` with a unique key, and only the run that inserts the claim delivers it.
+- Feedback requests are sent once, on the transition to completed.
+
+Vercel Cron sends the header automatically when `CRON_SECRET` is set. The Hobby plan only allows daily crons; use Pro, or an external scheduler, for the 5- and 15-minute jobs. Any other scheduler works:
 
 ```bash
-curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/reminders
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/event-status
 ```
+
+For example, with GitHub Actions: store `CRON_SECRET` and `APP_URL` as repository secrets, and add a workflow like this:
+
+```yaml
+# .github/workflows/cron.yml
+on:
+  schedule: [{ cron: "*/5 * * * *" }]   # GitHub may delay scheduled runs by several minutes
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for job in event-status reminders; do
+            curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ secrets.APP_URL }}/api/cron/$job"
+          done
+```
+
+Run `/api/cron/cleanup` once a day.
+
+Automatic completion matters in production. Organizers can mark events ongoing or completed by hand, but the scheduler is what completes events, sends feedback requests and releases abandoned seat holds when nobody does.
 
 ## Deployment
 
@@ -323,7 +416,7 @@ curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/r
 
 1. Provision Postgres: Neon, Supabase, Vercel Postgres, RDS or similar. Use the **pooled** URL for `DATABASE_URL` and the **direct** URL for `DIRECT_DATABASE_URL`.
 2. Import the repository into Vercel and set every production environment variable (`APP_ENV=production`, `NEXT_PUBLIC_APP_URL=https://your-domain`).
-3. The build command in `vercel.json` runs `prisma migrate deploy && npm run build`, so migrations apply on every deploy.
+3. The build command in `vercel.json` runs `prisma migrate deploy && npm run check:config && npm run build`. Migrations apply on every deploy, and a deploy with invalid configuration fails with a value-free report.
 4. Add your domain in Vercel. HTTPS is automatic, and HSTS is sent by the app.
 5. Configure the Razorpay **live** webhook to point at `https://your-domain/api/webhooks/razorpay`.
 6. Cron jobs come from `vercel.json`. Five-minute schedules need a Vercel Pro plan; on Hobby, lower the frequency or use an external scheduler.
@@ -334,7 +427,7 @@ Use a **separate Vercel environment (Preview or Staging) with its own database a
 ### Any Node host (Docker, VM, Railway, Render, Fly)
 
 ```bash
-npm ci && npx prisma migrate deploy && npm run build && npm start   # port 3000
+npm ci && npx prisma migrate deploy && npm run check:config && npm run build && npm start   # port 3000
 ```
 
 Put the app behind HTTPS and forward `x-forwarded-for`, `x-forwarded-host` and `x-forwarded-proto`. Server-Sent Events need proxy buffering disabled; the app sends `X-Accel-Buffering: no` for nginx.
@@ -347,7 +440,8 @@ Put the app behind HTTPS and forward `x-forwarded-for`, `x-forwarded-host` and `
 - [ ] Razorpay **live** keys, live webhook with its secret, and a test payment of ₹1 refunded end to end
 - [ ] Email domain verified; send a test via "Forgot password"
 - [ ] Object storage configured, and `STORAGE_PUBLIC_URL` reachable
-- [ ] Cron jobs running (check the logs for `Cron job completed`)
+- [ ] `npm run check:config` passes with the production environment loaded
+- [ ] Cron jobs running (check the logs for `Cron job completed`); a request without the secret returns 401
 - [ ] `GET /api/health` is healthy; uptime monitoring and log drain configured
 - [ ] Database backups and point-in-time recovery enabled
 - [ ] Security headers verified (for example with securityheaders.com)
@@ -368,7 +462,12 @@ Put the app behind HTTPS and forward `x-forwarded-for`, `x-forwarded-host` and `
 
 | Symptom | Fix |
 |---|---|
+| Anything configuration-related | Run `npm run check:config`. It names each missing or invalid variable without printing values. The server also logs `Configuration problems detected` at startup. |
 | `Invalid server environment: AUTH_SECRET…` | Set `AUTH_SECRET` to 32 or more characters. |
+| Paid events show "unavailable" although keys are set | `rzp_live_` keys only work with `APP_ENV=production`, and production also needs `RAZORPAY_WEBHOOK_SECRET`. Use `rzp_test_` keys elsewhere. |
+| Emails show `FAILED` in `email_logs` | Read the `error` column. It usually means a sender domain not verified in Resend, or an invalid `EMAIL_FROM`. |
+| Uploads fail with "not configured correctly" | Storage variables are partially set, or `STORAGE_PUBLIC_URL` is missing. See `check:config`. |
+| Uploaded images don't display | `STORAGE_PUBLIC_URL` must allow anonymous reads and must have been set at **build** time, because it is part of the CSP. |
 | "Online payment is unavailable" on a paid event | Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` and restart the server. Until then, paid registration is refused up front, so no seat is held for a payment that can't happen. Free events work without Razorpay. |
 | Payment succeeded but the registration is still pending | Check that the webhook URL is reachable and that `RAZORPAY_WEBHOOK_SECRET` matches. Look at the `payment_webhooks` table (`status`, `error`). The registration page updates live when the webhook lands. |
 | Realtime indicator stays on "Connecting…" | `DIRECT_DATABASE_URL` must be a direct (non-PgBouncer) connection so `LISTEN` works. Behind nginx, disable proxy buffering for `/api/realtime`. |

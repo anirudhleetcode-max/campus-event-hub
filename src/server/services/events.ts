@@ -525,6 +525,8 @@ async function requestFeedback(eventId: string, title: string) {
     title: `How was ${title}?`,
     body: "Share your feedback to help organizers make the next event even better.",
     link: `/my/registrations?feedback=${eventId}`,
+    email: true,
+    emailCta: "Give feedback",
   });
 }
 

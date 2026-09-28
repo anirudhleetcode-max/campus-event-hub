@@ -3,11 +3,21 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { imageSize } from "image-size";
-import { env, isProduction } from "./env";
+import { configReport, env, isProduction } from "./env";
 import { AppError } from "./errors";
 import { randomToken } from "./crypto";
+import { logger } from "./logger";
+import { can } from "./auth/permissions";
+import type { SessionUser } from "./auth/session";
 
 export type UploadKind = "banner" | "gallery" | "logo" | "avatar" | "signature";
+
+/** Who may upload which kind of image: anyone their own avatar; event creators banners/gallery; college admins logos/signatures. */
+export function canUpload(user: SessionUser, kind: UploadKind): boolean {
+  if (kind === "avatar") return true;
+  if (kind === "banner" || kind === "gallery") return can(user, "events:create");
+  return can(user, "college:profile");
+}
 
 const RULES: Record<UploadKind, { maxBytes: number; minW: number; minH: number; maxW: number; maxH: number }> = {
   banner: { maxBytes: 5 * 1024 * 1024, minW: 800, minH: 300, maxW: 6000, maxH: 4000 },
@@ -98,11 +108,26 @@ export async function readLocalUpload(key: string): Promise<{ body: Buffer; cont
   }
 }
 
+let s3: { signature: string; provider: S3Provider } | null = null;
+
+/**
+ * S3-compatible storage when fully configured; the local .data/uploads
+ * fallback only outside production. A partial or invalid storage
+ * configuration is an error rather than a silent fallback.
+ */
 function provider(): StorageProvider {
-  const e = env();
-  if (e.STORAGE_BUCKET && e.STORAGE_KEY && e.STORAGE_SECRET) {
-    const publicBase = e.STORAGE_PUBLIC_URL || `${e.STORAGE_URL?.replace(/\/$/, "")}/${e.STORAGE_BUCKET}`;
-    return new S3Provider(e.STORAGE_BUCKET, publicBase, e.STORAGE_URL, e.STORAGE_REGION || "auto", e.STORAGE_KEY, e.STORAGE_SECRET);
+  const report = configReport().storage;
+  if (report.status === "MISCONFIGURED") {
+    logger.error("File storage is misconfigured (run npm run check:config)", { problems: report.errors });
+    throw new AppError("INTERNAL", "File uploads are not configured correctly. Please contact the administrator.");
+  }
+  if (report.status === "CONFIGURED") {
+    const e = env();
+    const signature = [e.STORAGE_URL, e.STORAGE_BUCKET, e.STORAGE_REGION, e.STORAGE_KEY, e.STORAGE_PUBLIC_URL].join("|");
+    if (s3?.signature !== signature) {
+      s3 = { signature, provider: new S3Provider(e.STORAGE_BUCKET!, e.STORAGE_PUBLIC_URL!, e.STORAGE_URL, e.STORAGE_REGION || "auto", e.STORAGE_KEY!, e.STORAGE_SECRET!) };
+    }
+    return s3.provider;
   }
   if (isProduction()) throw new AppError("INTERNAL", "File uploads are not configured. Please contact the administrator.");
   return new LocalProvider();

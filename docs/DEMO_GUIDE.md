@@ -21,6 +21,7 @@ The same script runs automatically as the Playwright suite `tests/e2e/demo-flow.
 2. **Run the production build:**
 
    ```bash
+   npm run check:config    # optional: shows what is configured (no secrets printed)
    npm run build && npm start
    ```
 
@@ -78,10 +79,16 @@ The same script runs automatically as the Playwright suite `tests/e2e/demo-flow.
 | Feature | Needs | Without it |
 |---|---|---|
 | Online payments | Razorpay `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Paid registration is refused with a clear notice. Seeded demo payments are labelled "Demo". |
-| Email (confirmations, reminders) | `EMAIL_API_KEY` (Resend) and a verified `EMAIL_FROM` domain | In-app notifications still work; emails are logged as `SKIPPED` |
+| Email (confirmations, reminders, feedback requests, certificates, refunds) | `EMAIL_API_KEY` (Resend) and a verified `EMAIL_FROM` domain | In-app notifications still work; emails are logged as `SKIPPED` |
 | Cloud file storage | `STORAGE_*` (S3-compatible) | Local `.data/uploads` is used in development. Production needs S3. |
 | Scheduled jobs in production | `CRON_SECRET` and a cron caller (Vercel Cron via `vercel.json`) | Organizers can still move events forward by hand; automatic reminders and status changes don't run |
 
 Everything else needs only PostgreSQL and `AUTH_SECRET`: accounts, events, approval, registration, QR attendance, feedback, certificates, analytics and exports.
 
-A live Razorpay checkout **has not been tested**, because no keys were available. The payment logic is covered by integration tests with Razorpay's API mocked.
+No real external service has been tested, because no keys were available:
+
+- **Razorpay:** a live checkout has not been tested. The payment logic is covered by integration tests with Razorpay's API mocked.
+- **Resend:** the email logic is covered by integration tests with Resend's API mocked.
+- **Storage:** uploads were tested with the real AWS SDK against a local S3-compatible server, not a cloud bucket.
+
+See *Production integration setup* in the README.

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { inspectConfig, parseEmailFrom, type ConfigReport } from "./config";
 
 /**
  * Server environment. Validated lazily on first access so that `next build`
@@ -30,6 +31,19 @@ const schema = z.object({
 export type ServerEnv = z.infer<typeof schema>;
 
 let cached: ServerEnv | null = null;
+let cachedReport: ConfigReport | null = null;
+
+/** Tests only: forget the parsed environment after changing process.env. */
+export function resetEnvCache(): void {
+  cached = null;
+  cachedReport = null;
+}
+
+/** Value-free configuration report (see ./config.ts). */
+export function configReport(): ConfigReport {
+  cachedReport ??= inspectConfig(process.env);
+  return cachedReport;
+}
 
 export function env(): ServerEnv {
   if (cached) return cached;
@@ -51,9 +65,21 @@ export function appUrl(path = ""): string {
   return new URL(path, env().NEXT_PUBLIC_APP_URL).toString();
 }
 
+/**
+ * True only for a complete, valid Razorpay configuration. A LIVE key outside
+ * APP_ENV=production, a malformed key, or (in production) a missing webhook
+ * secret counts as not configured, so payments are refused instead of
+ * charging real money from a development machine.
+ */
 export function razorpayConfigured(): boolean {
   const e = env();
-  return Boolean(e.RAZORPAY_KEY_ID && e.RAZORPAY_KEY_SECRET);
+  return Boolean(e.RAZORPAY_KEY_ID && e.RAZORPAY_KEY_SECRET) && configReport().razorpay.status === "CONFIGURED";
+}
+
+/** The validated sender for outgoing email, or null when EMAIL_FROM is missing/invalid. */
+export function emailSender(): string | null {
+  const from = env().EMAIL_FROM;
+  return from && parseEmailFrom(from) && configReport().email.errors.length === 0 ? from.trim() : null;
 }
 
 /** Razorpay keys are prefixed rzp_test_ / rzp_live_. */

@@ -11,6 +11,10 @@ COPY prisma ./prisma
 RUN npm ci
 
 FROM base AS build
+# The Content-Security-Policy is compiled at build time and must allow the
+# storage origin: docker build --build-arg STORAGE_PUBLIC_URL=https://cdn.example.com .
+ARG STORAGE_PUBLIC_URL=""
+ENV STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build && npm prune --omit=dev

@@ -202,7 +202,7 @@ The attendance dashboard and the student's pass update live.
 ## 11. How does feedback work?
 
 - **Who can give feedback:** only students with a confirmed registration, after the event has ended or has been marked completed.
-- **The request:** when the event completes, whether automatically or by the organizer, every participant gets an in-app feedback request.
+- **The request:** when the event completes, whether automatically or by the organizer, every participant gets a feedback request. It arrives in the app and, when email is configured, by email.
 - **The form:** five ratings from 1 to 5 (overall, organization, venue, speakers, experience) plus optional comments and suggestions.
 - **One per participant:** each participant can submit feedback once. The database enforces this.
 - **What the organizer sees:**
@@ -289,9 +289,12 @@ Because of this:
 
 **Not yet tested against the real external services**, because no credentials were available:
 
-- **Razorpay:** a live test-mode checkout has not been run. The payment logic is covered by automated tests with Razorpay's API mocked.
-- **Resend email:** without a key, emails are recorded as skipped.
-- **Cloud file storage:** local storage is used instead.
+- **Razorpay:** a real test-mode checkout has not been run. The payment logic, including signatures, webhooks, replays, failures and refunds, is covered by automated tests with only Razorpay's API mocked. Live keys are refused outside production.
+- **Resend email:** no real email has been sent. Sending, failures, retries and configuration errors are tested with Resend's API mocked. Without a key, emails are recorded as skipped.
+- **Cloud file storage:** no cloud bucket has been used. Uploads were tested with the real AWS SDK against a local S3-compatible server; local disk is used in development.
+- **Scheduled jobs:** tested locally, including that repeated or overlapping runs never send duplicates. Production needs a scheduler (Vercel Cron or any cron service) and `CRON_SECRET`.
+
+`npm run check:config` shows which of these are configured on a given server, without printing any secret.
 
 **Not in the product today:**
 

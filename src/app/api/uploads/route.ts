@@ -1,9 +1,8 @@
 import { requireUser } from "@/server/auth/session";
-import { can } from "@/server/auth/permissions";
 import { AppError, forbidden } from "@/server/errors";
 import { assertSameOrigin, errorResponse, json } from "@/server/http";
 import { rateLimit } from "@/server/rate-limit";
-import { storeImage, type UploadKind } from "@/server/storage";
+import { canUpload, storeImage, type UploadKind } from "@/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,11 +46,7 @@ export async function POST(req: Request) {
     if (file.size === 0) throw new AppError("VALIDATION", "The file is empty.");
     if (file.size > MAX_BYTES) throw new AppError("VALIDATION", "The image must be smaller than 6 MB.");
 
-    const allowed =
-      kind === "avatar" ? true
-        : kind === "banner" || kind === "gallery" ? can(user, "events:create")
-          : can(user, "college:profile");
-    if (!allowed) throw forbidden("You don't have permission to upload this type of image.");
+    if (!canUpload(user, kind)) throw forbidden("You don't have permission to upload this type of image.");
 
     const buf = Buffer.from(await file.arrayBuffer());
     const stored = await storeImage(buf, kind, user.id);

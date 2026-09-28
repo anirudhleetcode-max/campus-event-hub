@@ -20,12 +20,12 @@ The whole event lifecycle is implemented end to end and is exercised by automate
 |---|---|
 | Typecheck | Passes |
 | ESLint | 0 problems |
-| Unit and integration tests | 58 pass |
+| Unit and integration tests | 84 pass |
 | Playwright E2E tests | 58 pass, two consecutive full runs |
 | Production build | 74 routes |
 | Prisma schema and migrations | Valid and up to date |
 
-One flow has **not** been exercised against the real payment gateway: a live Razorpay payment. No Razorpay credentials were available (see §20).
+**No real external service has been used.** Razorpay, Resend and a cloud S3 bucket were not available, so no credentials exist in this environment. Each integration is implemented and hardened, and covered by mocked tests. Storage was also exercised with the real AWS SDK against a local S3-compatible server. See §20 for the exact status of each.
 
 ## 2. Problem statement
 
@@ -207,6 +207,12 @@ Users, colleges, departments and events are soft-deleted, which keeps the financ
 4. `POST /api/payments/verify`: the server checks the HMAC signature, then **fetches the payment from Razorpay** and compares the order, amount and currency before confirming.
 5. `POST /api/webhooks/razorpay`: Razorpay reports the same payment independently. The signature is checked against the raw request body, and each webhook event ID is processed only once.
 
+**Configuration guard:** payments are enabled only when the configuration is complete and valid.
+
+- `rzp_live_` keys are refused unless `APP_ENV=production`, so no real charge can start from a development or staging machine.
+- In production, the webhook secret is also required.
+- Only the key ID is ever sent to the browser.
+
 Both step 4 and step 5 call the same capture routine, which locks the payment row. Whichever arrives first confirms the registration; the other does nothing.
 
 - **Failed payment:** the registration stays pending, so the student can retry until the hold expires.
@@ -249,7 +255,7 @@ Both step 4 and step 5 call the same capture routine, which locks the payment ro
 - **Who can submit:** only students whose registration is confirmed, and only after the event has ended or been marked completed.
 - **Content:** five ratings from 1 to 5 (overall, organization, venue, speakers, experience) plus optional comments and suggestions. Ratings are checked by zod and again by a database constraint.
 - **One per participant:** enforced by a unique constraint.
-- **Feedback requests:** participants are asked for feedback when the event completes, whether it's completed by the cron job or by the organizer.
+- **Feedback requests:** participants are asked for feedback when the event completes, whether it's completed by the cron job or by the organizer. The request is an in-app notification and, when email is configured, an email.
 - **Organizer view:** averages for each rating, the distribution of overall ratings, and the comments. Everything can be exported as CSV.
 
 ## 15. Analytics
@@ -296,6 +302,12 @@ For example, the E2E test checks 2 registered and 1 attended as a **50% no-show 
   - Payments: signatures, webhook replay, the checkout callback racing the webhook, late payments, and refunds.
   - Lifecycle permissions, attendance races, and certificate eligibility.
   - Feedback, reminders, analytics, exports, and subscription event limits.
+  - External integrations without credentials (`integrations.test.ts`):
+    - **Email:** the Resend request, failures, retry, missing or invalid configuration, and isolation from registration state.
+    - **Storage:** the S3 upload request, validation before upload, partial or missing configuration, and upload permissions.
+    - **Cron:** authentication, and idempotency under repeated and concurrent runs.
+    - **Razorpay:** the live-key guard.
+  - Every `check:config` rule, including that its report never contains a secret (`config.test.ts`).
 
 ## 17. E2E strategy
 
@@ -341,11 +353,16 @@ The layout is mobile-first. It has been checked at 320, 375, 768, 1024, 1280 and
 
 ## 20. Known limitations
 
-**Not verified against real third-party services**, because no credentials were available:
+**External integrations: what was actually verified.** No real Razorpay, Resend or cloud-storage credentials were available.
 
-- **Razorpay:** a real test-mode checkout has not been run. Order creation, signatures, webhooks, capture and refunds are covered by integration tests (only Razorpay's HTTP API is mocked) and by signed-webhook checks against the production server.
-- **Resend email:** without a key, emails are logged as `SKIPPED` in `email_logs`.
-- **S3-compatible storage:** local storage is used outside production.
+| Integration | Implemented | Configured here | Tested with mocks | Tested with the real service | Needs production credentials |
+|---|---|---|---|---|---|
+| Razorpay | Yes | No | Yes: orders, signature, gateway re-check, webhook replay, failure, refund, live-key guard | **No** | Key ID, key secret, webhook secret |
+| Resend email | Yes | No (emails `SKIPPED`) | Yes: request format, provider error, 429 retry, network error, missing key, invalid sender, state isolation | **No** | API key, verified `EMAIL_FROM` |
+| S3 storage | Yes | No (local `.data/uploads`) | Yes: `PutObject` contents, validation, configuration, permissions | Partly: the real AWS SDK against a **local** S3-compatible server (moto) to upload, read back publicly and delete. **No cloud bucket was tested.** | Key, secret, bucket, public URL, plus endpoint or region |
+| Cron | Yes | Yes (`CRON_SECRET` in `.env`) | Yes: auth, all three jobs, concurrency | Yes, locally: E2E calls the real endpoint on the production build | `CRON_SECRET` and a scheduler |
+
+**Bug found and fixed while hardening:** two overlapping reminder cron runs could send the same reminder twice, because the claim ignored which rows it had actually inserted. Now only the run that inserts a reminder's claim delivers it, and a concurrency test guards this.
 
 **Product limitations:**
 
@@ -368,11 +385,11 @@ The layout is mobile-first. It has been checked at 320, 375, 768, 1024, 1280 and
 - Razorpay keys and a webhook secret, for paid events.
 - Resend, for email.
 - S3-compatible storage.
-- A cron caller for `/api/cron/*`. `vercel.json` configures Vercel Cron.
+- A cron caller for `/api/cron/*`. `vercel.json` configures Vercel Cron; the Hobby plan only allows daily jobs, so use Pro or an external scheduler.
 
 **Deploy:**
 
-1. Set the environment variables listed in `.env.example` and the README.
+1. Set the environment variables listed in `.env.example` and the README, then run `npm run check:config`. The Vercel build runs it too, and fails on invalid production configuration.
 2. Run `npm run db:deploy`.
 3. Build and start the app.
 4. Point the Razorpay webhook at `/api/webhooks/razorpay`.

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./db";
-import { env } from "./env";
+import { emailSender, env } from "./env";
 import { logger } from "./logger";
 
 export type EmailMessage = {
@@ -22,22 +22,32 @@ class ResendProvider implements EmailProvider {
   readonly name = "resend";
   constructor(private apiKey: string, private from: string) {}
   async send(msg: EmailMessage) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: this.from, to: [msg.to], subject: msg.subject, html: msg.html, text: msg.text }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    const request = () =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: this.from, to: [msg.to], subject: msg.subject, html: msg.html, text: msg.text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    let res = await request();
+    // Resend rate-limits bursts (429) and can fail transiently (5xx): retry once after a short wait.
+    if (res.status === 429 || res.status >= 500) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      await new Promise((r) => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 2) * 1000 : 1000));
+      res = await request();
+    }
+    // Only the status and Resend's error message are recorded — never the request headers.
     if (!res.ok) throw new Error(`Resend responded ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const body = (await res.json()) as { id?: string };
     return { id: body.id };
   }
 }
 
-function provider(): EmailProvider | null {
+function provider(): EmailProvider | "invalid-sender" | null {
   const e = env();
   if (!e.EMAIL_API_KEY) return null;
-  return new ResendProvider(e.EMAIL_API_KEY, e.EMAIL_FROM || "Campus Event Hub <no-reply@example.com>");
+  const from = emailSender();
+  return from ? new ResendProvider(e.EMAIL_API_KEY, from) : "invalid-sender";
 }
 
 /**
@@ -54,9 +64,18 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     logger.debug("Email skipped (no provider configured)", { template: msg.template });
     return;
   }
+  if (p === "invalid-sender") {
+    logger.error("Email not sent: EMAIL_FROM is missing or invalid (run npm run check:config)", { template: msg.template });
+    await db.emailLog
+      .create({ data: { to: msg.to, subject: msg.subject, template: msg.template, status: "FAILED", error: "EMAIL_FROM is missing or invalid" } })
+      .catch(() => undefined);
+    return;
+  }
   try {
     const { id } = await p.send(msg);
-    await db.emailLog.create({ data: { to: msg.to, subject: msg.subject, template: msg.template, status: "SENT", providerId: id } });
+    await db.emailLog
+      .create({ data: { to: msg.to, subject: msg.subject, template: msg.template, status: "SENT", providerId: id } })
+      .catch(() => undefined);
   } catch (err) {
     logger.error("Email delivery failed", { template: msg.template, error: err });
     await db.emailLog
