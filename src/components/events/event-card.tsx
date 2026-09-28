@@ -27,7 +27,7 @@ export function EventCard({ event }: { event: PublicEventCard }) {
           {state && <Badge tone={state.t} className="ring-0">{state.l}</Badge>}
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col p-4">
         <p className="text-xs font-medium text-muted-foreground">
           {event.college.shortName ?? event.college.name}
           {event.department ? ` · ${event.department.code}` : ""}
@@ -37,7 +37,7 @@ export function EventCard({ event }: { event: PublicEventCard }) {
             {event.title}
           </Link>
         </h3>
-        <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+        <ul className="mt-3 mb-4 space-y-1.5 text-sm text-muted-foreground">
           <li className="flex items-center gap-2">
             <CalendarDays className="size-4 shrink-0" aria-hidden />
             {formatDate(event.startsAt, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
