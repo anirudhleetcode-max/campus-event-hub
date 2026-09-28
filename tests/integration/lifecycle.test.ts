@@ -8,11 +8,12 @@ import { sendDueReminders } from "@/server/services/reminders";
 import { dashboardAnalytics, eventAnalytics, resolveRange } from "@/server/services/analytics";
 import { exportCsv } from "@/server/services/exports";
 import { AppError } from "@/server/errors";
+import type { EventFormValues } from "@/lib/validators";
 import { asSession, category, datetimeLocal, makeCollege, makeEvent, makeUser, prisma, resetDb } from "../helpers";
 
 const H = 3_600_000;
 
-async function eventForm(overrides: Record<string, unknown> = {}) {
+async function eventForm(overrides: Record<string, unknown> = {}): Promise<EventFormValues> {
   const start = new Date(Date.now() + 10 * 24 * H);
   return {
     title: "AI Workshop", summary: "Hands-on AI workshop for students", description: "Learn to build things with AI in this workshop session.",
@@ -21,7 +22,7 @@ async function eventForm(overrides: Record<string, unknown> = {}) {
     questions: [{ label: "Laptop?", type: "SELECT", options: ["Yes", "No"], required: true }],
     speakers: [{ name: "Dr. Speaker", role: "SPEAKER" }],
     ...overrides,
-  };
+  } as EventFormValues;
 }
 
 describe("event lifecycle & RBAC", () => {
