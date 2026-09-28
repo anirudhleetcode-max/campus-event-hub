@@ -35,7 +35,7 @@ export function CertificatePreview({ collegeName, type, recipientName, eventTitl
 
       <div className="relative flex h-full flex-col items-center justify-center gap-[0.35em] px-[10%] py-[7%] text-[length:clamp(7px,2.6cqw,13px)]">
         <p className="line-clamp-1 text-[0.95em] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{collegeName}</p>
-        <p className="font-serif text-[1.9em] leading-tight font-semibold" style={{ color: accent }}>
+        <p className="font-serif text-[1.9em] leading-tight font-semibold" style={{ color: `color-mix(in oklab, ${accent} 72%, black)` }}>
           {CERTIFICATE_HEADING[type]}
         </p>
         <p className="text-[0.85em] text-muted-foreground">This is to certify that</p>

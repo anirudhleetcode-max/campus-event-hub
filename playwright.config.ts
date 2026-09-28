@@ -1,15 +1,22 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_CRON_SECRET } from "./tests/e2e/constants";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
-/** E2E runs against its own database (re-seeded in global setup) so it never touches dev data. */
+/**
+ * E2E runs against its own database so it never touches development data.
+ * It is created, migrated and re-seeded by tests/e2e/prepare-db.ts, which runs
+ * as part of the webServer command below (Playwright starts webServer before
+ * globalSetup, so preparation can't live in globalSetup).
+ */
 const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL ?? "postgresql://campus:campus@localhost:5432/campus_hub_e2e?schema=public";
 process.env.E2E_DATABASE_URL = E2E_DATABASE_URL;
 
+
 /**
- * End-to-end tests run against a production build (`npm run build`) and a
- * seeded database (`npm run db:seed`). Set PLAYWRIGHT_CHROMIUM_PATH to use a
- * pre-installed Chromium instead of downloading one.
+ * End-to-end tests run against a production build: `npm run build` first,
+ * then `npm run test:e2e`. Set PLAYWRIGHT_CHROMIUM_PATH to use a pre-installed
+ * Chromium instead of downloading one.
  */
 export default defineConfig({
   testDir: "tests/e2e",
@@ -33,6 +40,6 @@ export default defineConfig({
         url: `${baseURL}/api/health`,
         reuseExistingServer: false,
         timeout: 120_000,
-        env: { E2E_DATABASE_URL, NEXT_PUBLIC_APP_URL: baseURL, DATABASE_URL: E2E_DATABASE_URL, DIRECT_DATABASE_URL: E2E_DATABASE_URL, APP_ENV: "test" },
+        env: { E2E_DATABASE_URL, NEXT_PUBLIC_APP_URL: baseURL, DATABASE_URL: E2E_DATABASE_URL, DIRECT_DATABASE_URL: E2E_DATABASE_URL, APP_ENV: "test", CRON_SECRET: E2E_CRON_SECRET },
       },
 });

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/misc";
 
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-label="Loading certificates">
+    <div role="status" aria-busy="true" aria-label="Loading certificates">
       <Skeleton className="h-8 w-52" />
       <Skeleton className="mt-2 mb-6 h-4 w-80 max-w-full" />
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

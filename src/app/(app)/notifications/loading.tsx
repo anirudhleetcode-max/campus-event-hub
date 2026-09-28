@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/misc";
 
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-4xl" aria-busy="true" aria-label="Loading notifications">
+    <div className="mx-auto max-w-4xl" role="status" aria-busy="true" aria-label="Loading notifications">
       <Skeleton className="h-8 w-44" />
       <Skeleton className="mt-2 mb-6 h-4 w-64" />
       <div className="flex gap-2">

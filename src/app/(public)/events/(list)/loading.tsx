@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/misc";
 
 export default function EventsLoading() {
   return (
-    <div className="container-page py-10 sm:py-14" aria-busy="true" aria-label="Loading events">
+    <div className="container-page py-10 sm:py-14" role="status" aria-busy="true" aria-label="Loading events">
       <Skeleton className="h-3 w-28" />
       <Skeleton className="mt-3 h-9 w-64" />
       <Skeleton className="mt-3 h-4 w-full max-w-md" />

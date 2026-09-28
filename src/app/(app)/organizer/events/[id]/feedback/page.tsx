@@ -21,7 +21,7 @@ const DIMENSIONS = [
 
 function Stars({ value }: { value: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-warning" aria-label={`${value} out of 5 stars`}>
+    <span role="img" className="inline-flex items-center gap-0.5 text-warning" aria-label={`${value} out of 5 stars`}>
       {Array.from({ length: 5 }, (_, i) => (
         <Star key={i} className={i < value ? "size-3.5 fill-current" : "size-3.5 text-border-strong"} aria-hidden />
       ))}

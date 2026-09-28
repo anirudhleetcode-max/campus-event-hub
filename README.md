@@ -204,14 +204,42 @@ npm test          # vitest: unit + integration against a real Postgres (campus_h
 npm run build && npm run test:e2e   # playwright: full user journeys against the production build
 ```
 
-**End-to-end tests** (`tests/e2e`, 36 tests) run against `next start` and a dedicated database, `campus_hub_e2e` by default (override with `E2E_DATABASE_URL`). The database is created, migrated and re-seeded on every run, so your development data is never touched. The suites cover:
+**End-to-end tests** (`tests/e2e`, 52 tests) run against `next start` on a dedicated database. By default this is `campus_hub_e2e`; override it with `E2E_DATABASE_URL`.
 
-- **Auth and guards:** redirects for anonymous users, role isolation, cross-origin POST rejection, unsigned webhooks and cron secrets.
-- **The student journey:** sign up, search, register, the QR pass, duplicate prevention, notifications, the receipt, certificate PDFs and verification. They also check that a student can't open another student's registration, payment or certificate.
-- **The organizer journey:** check-in by registration ID plus duplicate detection, the attendance dashboard, feedback, issuing certificates, analytics and the PDF report. They also cover the event wizard through to admin approval and publication, and read-only access for faculty.
-- **Admin:** dashboard metrics checked against the database, suspending and reactivating users (recorded in the audit log), college isolation, every admin section, announcements and CSV exports.
-- **Uploads:** a valid image is stored and served back; a disguised SVG, a forbidden upload type, and path traversal are all refused.
-- **Responsive layout:** no horizontal overflow at 320, 375, 768 and 1280px on public, student, organizer and admin pages, and the mobile menus work.
+#### How the E2E database is prepared (and why not in `globalSetup`)
+
+Playwright starts its `webServer` **before** `globalSetup` runs. Preparing the database in `globalSetup` would therefore start Next.js against a database that doesn't exist yet. Instead, `playwright.config.ts` makes preparation part of the web server command:
+
+```
+npx tsx tests/e2e/prepare-db.ts && npx next start -p 3100
+   │  1. create campus_hub_e2e if missing
+   │  2. prisma migrate deploy
+   │  3. seed deterministic demo data (wipes the E2E DB only)
+   └─ 4. start Next.js with DATABASE_URL / DIRECT_DATABASE_URL = E2E database
+Playwright waits for /api/health → runs the tests
+```
+
+- **Safety:** `prepare-db.ts` refuses to reset any database whose name doesn't contain `e2e`, and any database that `.env` configures as your development database.
+- **Clock:** the web server gets its own `CRON_SECRET`. Tests advance an event's time by moving its timestamps, then call the real `/api/cron/event-status` endpoint, so status automation is exercised rather than faked.
+- **Fresh data:** each run re-seeds the database, and the tests don't depend on data left behind by earlier runs.
+
+#### What the suites cover
+
+- **`lifecycle`:** one event through the whole product.
+  - The organizer creates it in the wizard and submits it; it isn't public while pending.
+  - An admin approves it and it goes live, with an audit entry and a notification.
+  - Two students find it by search and register.
+  - On event day the organizer scans a pass with a **fake webcam playing the real QR code**, so the camera path and jsQR decoding are tested. A duplicate scan is refused.
+  - The cron marks the event completed and sends feedback requests; the attendee submits feedback once.
+  - Certificates are issued to the attendee only, not the no-show. The student downloads the PDF and it verifies publicly.
+  - Organizer analytics show 2 registrations, 1 attended and a 50% no-show rate. The CSV and PDF report are checked, and admin analytics are reviewed.
+- **`auth`:** redirects for anonymous users, role isolation, cross-origin POST rejection, unsigned webhooks, and the cron secret.
+- **`student`:** the discovery → registration → QR pass journey, and the behaviour when payments aren't configured (clear notice, no seat hold, no payment). Also the receipt, certificate PDF, public verification, uploads (disguised SVG, forbidden kind and path traversal refused), and blocked access to other students' records.
+- **`organizer`:** every hub page and every event tab, forged QR payloads, read-only faculty access, and cross-college isolation (pages, all CSV exports, the PDF report, scanning, hub listings). Also scanner-only access for student volunteers.
+- **`admin`:** dashboard metrics checked against the database, suspending and reactivating users with an audit trail, college isolation, every section, announcements, and CSV export.
+- **`links`:** crawls every internal link on each role's main pages, including event-table rows and pagination, and fails on any 4xx/5xx.
+- **`a11y`:** axe-core WCAG 2 A/AA checks on public, student, organizer and admin pages. Serious or critical violations fail the test.
+- **`responsive`:** no horizontal overflow at 320, 375, 768 and 1280px, and the mobile menus work.
 
 To use a preinstalled Chromium, set `PLAYWRIGHT_CHROMIUM_PATH` (or `PLAYWRIGHT_BROWSERS_PATH`).
 

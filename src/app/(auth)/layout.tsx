@@ -25,7 +25,7 @@ function BrandPanel() {
       <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 size-96 rounded-full bg-primary-foreground/5" />
 
       <div className="relative max-w-md space-y-3">
-        <p className="text-sm font-medium tracking-wide uppercase opacity-80">Campus Event Hub</p>
+        <p className="text-sm font-medium tracking-wide uppercase opacity-95">Campus Event Hub</p>
         <h2 className="text-3xl leading-tight font-semibold tracking-tight xl:text-4xl">Every college event, from first draft to final certificate.</h2>
         <p className="text-base opacity-85">One place for students, organizers and administrators to run events without spreadsheets.</p>
       </div>
@@ -55,7 +55,7 @@ function BrandPanel() {
             </span>
             <div>
               <p className="text-sm font-semibold">{title}</p>
-              <p className="text-sm opacity-80">{text}</p>
+              <p className="text-sm opacity-95">{text}</p>
             </div>
           </li>
         ))}

@@ -87,7 +87,7 @@ export async function QrPassMock({ className }: { className?: string }) {
   return (
     <Frame label="Illustration of a QR event pass" className={cn("relative w-full max-w-[17rem] overflow-hidden", className)}>
       <div className="bg-primary px-4 py-3 text-primary-foreground">
-        <p className="font-mono text-[10px] tracking-wider uppercase opacity-80">Event pass</p>
+        <p className="font-mono text-[10px] tracking-wider uppercase opacity-95">Event pass</p>
         <p className="mt-0.5 text-sm font-semibold">Your registration is confirmed</p>
       </div>
       <div className="space-y-1.5 px-4 py-3 text-[11px] text-muted-foreground">

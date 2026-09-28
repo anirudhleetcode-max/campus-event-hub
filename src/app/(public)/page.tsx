@@ -242,7 +242,7 @@ export default async function HomePage() {
           {steps.map(({ icon: Icon, title, body }, i) => (
             <li key={title} className="relative rounded-xl border border-border bg-background p-5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-3xl font-semibold text-border-strong">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-3xl font-semibold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
                 <Icon className="size-5 text-primary" aria-hidden />
               </div>
               <h3 className="mt-4 font-semibold">{title}</h3>

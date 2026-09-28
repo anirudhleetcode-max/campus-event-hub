@@ -125,6 +125,15 @@ async function main() {
       }),
     );
   }
+  // Edge case: very long name and email (exercises truncation in tables and passes).
+  students.push(
+    await db.user.create({
+      data: {
+        name: "Venkatanarasimharajuvaripeta Subrahmanya Lakshminarayana Chakravarthy", email: "venkatanarasimharajuvaripeta.chakravarthy@northfield.demo",
+        passwordHash, role: "STUDENT", collegeId: northfield.id, departmentId: nDepts[1]!.id, year: 2, studentId: "NIT24ECE999", createdAt: at(-30 * DAY),
+      },
+    }),
+  );
   const volunteer = students[5]!;
 
   await db.certificateTemplate.createMany({
@@ -153,6 +162,8 @@ async function main() {
     { title: "Campus Photography Walk", summary: "Golden-hour photo walk around campus with a mentor from the Photo Club.", category: "cultural", college: northfield, organizerId: organizer.id, status: "PENDING_APPROVAL", start: 15 * DAY, durationH: 3, capacity: 30, fee: 0, venue: "Main Gate", fill: 0, tags: ["photography"], description: "A relaxed golden-hour walk with composition tips. Any camera — including phones — is welcome." },
     { title: "National Debate Championship", summary: "Parliamentary debate for undergraduate teams.", category: "literary", college: northfield, organizerId: organizer.id, status: "CANCELLED", start: 8 * DAY, durationH: 8, capacity: 64, fee: 20000, venue: "Auditorium", fill: 0, tags: ["debate"], description: "Asian Parliamentary format debate championship." },
     { title: "Circuit Design Workshop", summary: "From breadboard to PCB: design your first circuit board.", category: "workshop", college: northfield, organizerId: organizer.id, dept: "ECE", mode: "HYBRID", status: "REGISTRATION_OPEN", start: 18 * DAY, durationH: 5, capacity: 45, fee: 19900, venue: "ECE Lab 3", fill: 0.2, tags: ["electronics", "pcb"], description: "Design a simple PCB in KiCad, then watch it fabricated live. Remote participants can follow along online." },
+    // Edge case: very long title, no registrations yet (exercises wrapping and zero-data states).
+    { title: "International Symposium on Sustainable Urban Mobility, Climate-Resilient Infrastructure and Smart Transportation Systems", summary: "Two days of research talks, a policy roundtable and a student poster session on the future of city transport.", category: "seminar", college: riverside, organizerId: rOrganizer.id, status: "REGISTRATION_OPEN", start: 27 * DAY, durationH: 16, capacity: 250, fee: 0, venue: "Riverside Convention Hall", fill: 0, tags: ["sustainability", "research"], description: "Researchers, city planners and students present work on sustainable mobility, resilient infrastructure and intelligent transport. Includes a moderated policy roundtable and a juried student poster session." },
     { title: "Marathon for a Cause", summary: "5K and 10K runs supporting the city's animal shelter.", category: "sports", college: riverside, organizerId: rOrganizer.id, status: "REGISTRATION_OPEN", start: 20 * DAY, durationH: 4, capacity: 300, fee: 25000, venue: "Riverside Main Gate", fill: 0.33, tags: ["running", "charity"], description: "Run 5K or 10K. All proceeds go to the city animal shelter. Includes T-shirt and medal." },
   ];
 

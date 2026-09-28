@@ -1,4 +1,5 @@
-import { expect, type Cookie, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Cookie, type Page } from "@playwright/test";
+import { E2E_CRON_SECRET } from "./constants";
 import { PrismaClient } from "@prisma/client";
 
 export const PASSWORD = "Demo@1234";
@@ -28,12 +29,16 @@ export async function login(page: Page, email: string, password = PASSWORD) {
     }
     sessions.delete(email);
   }
+  // Signed-in users are redirected away from /login, so sign in from a clean state.
+  await page.context().clearCookies();
   await page.goto("/login");
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
-  await page.waitForLoadState("load");
+  // The login form navigates client-side; wait until the signed-in shell has rendered
+  // so the caller's next navigation can't race it.
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 20_000 });
   sessions.set(email, (await page.context().cookies()).filter((c) => c.name === "ceh_session"));
 }
 
@@ -48,3 +53,10 @@ export async function expectNoHorizontalOverflow(page: Page) {
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 8);
+
+/** Runs the real time-driven status automation (the same endpoint Vercel Cron calls). */
+export async function runStatusCron(request: APIRequestContext) {
+  const res = await request.get("/api/cron/event-status", { headers: { authorization: `Bearer ${E2E_CRON_SECRET}` } });
+  expect(res.status()).toBe(200);
+  return (await res.json()) as { statusUpdates: number; completed: number };
+}

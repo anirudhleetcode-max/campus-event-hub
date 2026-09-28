@@ -414,28 +414,29 @@ export default async function EventDetailsPage({ params }: Props) {
   );
 }
 
+// Valid <dl> structure: each group is div > dt + dd; the icon sits inside the <dt>.
 function Fact({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted-foreground">
-        <Icon className="size-4" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="font-medium break-words">{value}</dd>
-      </div>
+    <div className="relative min-h-9 min-w-0 pl-12">
+      <dt className="text-xs text-muted-foreground">
+        <span className="absolute top-0 left-0 flex size-9 items-center justify-center rounded-lg bg-surface-2 text-muted-foreground" aria-hidden>
+          <Icon className="size-4" />
+        </span>
+        {label}
+      </dt>
+      <dd className="font-medium break-words">{value}</dd>
     </div>
   );
 }
 
 function SideFact({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <div className="min-w-0">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="font-medium">{value}</dd>
-      </div>
+    <div className="relative min-w-0 pl-7">
+      <dt className="text-xs text-muted-foreground">
+        <Icon className="absolute top-0.5 left-0 size-4 text-muted-foreground" aria-hidden />
+        {label}
+      </dt>
+      <dd className="font-medium">{value}</dd>
     </div>
   );
 }

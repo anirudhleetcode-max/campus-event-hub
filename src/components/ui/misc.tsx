@@ -108,7 +108,7 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
 
 export function StatCard({ label, value, icon: Icon, hint, trend, className }: { label: string; value: React.ReactNode; icon?: LucideIcon; hint?: React.ReactNode; trend?: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5", className)}>
+    <div role="group" aria-label={label} className={cn("rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5", className)}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
         {Icon && (
@@ -117,7 +117,7 @@ export function StatCard({ label, value, icon: Icon, hint, trend, className }: {
           </span>
         )}
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-[1.65rem]">{value}</p>
+      <p data-testid="stat-value" className="mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-[1.65rem]">{value}</p>
       {(hint || trend) && <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">{trend}{hint}</div>}
     </div>
   );

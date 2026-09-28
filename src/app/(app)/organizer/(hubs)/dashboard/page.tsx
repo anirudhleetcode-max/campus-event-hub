@@ -272,7 +272,7 @@ export default async function OrganizerDashboardPage() {
                 <ul className="space-y-4">
                   {d.feedback.map((f) => (
                     <li key={f.id} className="text-sm">
-                      <div className="flex items-center gap-1 text-warning" aria-label={`${f.overall} out of 5 stars`}>
+                      <div role="img" className="flex items-center gap-1 text-warning" aria-label={`${f.overall} out of 5 stars`}>
                         {Array.from({ length: 5 }, (_, i) => (
                           <Star key={i} className={i < f.overall ? "size-3.5 fill-current" : "size-3.5 text-border-strong"} aria-hidden />
                         ))}
@@ -307,7 +307,7 @@ export default async function OrganizerDashboardPage() {
                     const body = (
                       <>
                         <p className="line-clamp-1 text-sm font-medium">
-                          {!n.readAt && <span className="mr-1.5 inline-block size-2 rounded-full bg-primary align-middle" aria-label="Unread" />}
+                          {!n.readAt && <span role="img" className="mr-1.5 inline-block size-2 rounded-full bg-primary align-middle" aria-label="Unread" />}
                           {n.title}
                         </p>
                         <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
