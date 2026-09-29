@@ -21,7 +21,7 @@ The whole event lifecycle is implemented end to end and is exercised by automate
 | Typecheck | Passes |
 | ESLint | 0 problems |
 | Unit and integration tests | 84 pass |
-| Playwright E2E tests | 58 pass, two consecutive full runs |
+| Playwright E2E tests | 59 pass |
 | Production build | 74 routes |
 | Prisma schema and migrations | Valid and up to date |
 
@@ -365,7 +365,7 @@ The layout is mobile-first. It has been checked at 320, 375, 768, 1024, 1280 and
 **Bugs found and fixed while preparing the hosted deployment:**
 
 - **"Sign out" in the account menu did nothing.** The menu unmounted its form before the form could submit. The E2E suite had always signed out by clearing cookies, so it never noticed. The menu item now calls the sign-out action directly, and a new E2E test clicks the real menu item.
-- **The per-account login limit counted successful sign-ins.** Several judges sharing a demo account would have locked it after 10 sign-ins in 15 minutes. Now only failed attempts accumulate: a successful sign-in refunds its slot, and counting stays atomic. Integration tests show that 25 successful sign-ins pass, and that 10 failures, even from parallel guesses, still lock the account.
+- **The per-account login limit counted successful sign-ins.** Several judges sharing a demo account would have locked it after 10 sign-ins in 15 minutes. Now only failed attempts accumulate: a successful sign-in refunds its slot, and counting stays atomic. The implementation is in `src/server/services/auth.ts` (`login`) and `src/server/rate-limit.ts` (`refundRateLimit`). **No automated test currently covers this behaviour.** The E2E suites sign in normally but never exercise the limit.
 
 **Bug found and fixed while hardening:** two overlapping reminder cron runs could send the same reminder twice, because the claim ignored which rows it had actually inserted. Now only the run that inserts a reminder's claim delivers it, and a concurrency test guards this.
 

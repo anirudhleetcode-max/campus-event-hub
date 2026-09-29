@@ -8,16 +8,31 @@ The same script runs automatically as the Playwright suite `tests/e2e/demo-flow.
 
 ---
 
-## Presenting from the public URL (Render)
+## Presenting from the public URL
 
-When the app is deployed (see README → *Hackathon deployment*), judges can follow along on their own devices:
+**The app is not deployed yet.** Once it is (see README → *Hackathon deployment*), judges can follow along on their own devices:
 
-- Share the `https://…onrender.com` URL and the demo accounts below. All passwords are `Demo@1234`.
-- About **one minute before** you start, open the URL. The free plan sleeps after 15 idle minutes, and waking it takes up to a minute. If the scheduler workflow is set up, it stays awake anyway.
-- Run `SMOKE_BASE_URL=<url> SMOKE_READ_ONLY=1 npm run test:smoke` beforehand as a quick check. It doesn't modify data.
+- Share the public URL and the demo accounts below. All passwords are `Demo@1234`.
+- Open the URL about a minute before you start. Free hosting plans often sleep when idle and take a while to wake.
 - **Seeded dates are relative to when the database was seeded.** If that was more than a day ago, the "live" Robotics Expo will have ended. The main sequence below creates its own event and isn't affected. To refresh the seeded events, reset the demo data as described in the README. This wipes everything, including judges' test data.
 - Several judges can use the same demo account at once. Only failed sign-ins count toward the lockout.
-- Uploaded images don't survive a restart on the free plan. The demo doesn't need them.
+- Without S3 storage, uploaded images may not survive a restart. The demo doesn't need them.
+
+**Smoke check before judging (manual).** There is no automated test for a deployed URL, so walk through this list on the public URL:
+
+- [ ] The public URL opens over `https://`, and `/api/health` returns `{"status":"ok","database":"up"}`.
+- [ ] Login works.
+- [ ] The organizer dashboard loads (`organizer@northfield.demo`).
+- [ ] The admin dashboard loads (`admin@northfield.demo`).
+- [ ] The student dashboard loads (`student@northfield.demo`).
+- [ ] The organizer creates an event, the admin approves it, and it is published.
+- [ ] The student registers.
+- [ ] QR or registration-ID check-in works.
+- [ ] A duplicate check-in is refused.
+- [ ] The student submits feedback.
+- [ ] The organizer issues a certificate.
+- [ ] The certificate verifies publicly at `/verify/<ID>`.
+- [ ] Analytics show the registration, attendance and certificate.
 
 The local steps below are needed only when presenting from your own machine.
 
